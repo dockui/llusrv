@@ -6,7 +6,7 @@
 -- package.loaded["log"] = log, require "log"返回module名log
 
 local M = {
-    level = 4, 
+    level = 3, 
     output = "stdout", 
     path = "./log"
 }

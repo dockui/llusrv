@@ -15,7 +15,8 @@ local Login = class("Login")
 function Login:ctor(obj,data)
     log.info("Login:ctor()")
 
-    self.BASE = CONF.BASE.MODE_LUA_MAIN and BASE:new() or BASE
+    -- self.BASE = CONF.BASE.MODE_LUA_MAIN and BASE:new() or BASE
+    self.BASE = BASE
     assert(self.Base ~= BASE)
     if self.init then self:init(data) end
 end
@@ -26,7 +27,7 @@ function Login:init(data)
 
 end
 function Login:OnLogin(msg, fid, sid)
-    log.info("Login:OnLogin:")
+    log.info("Login:OnLogin:"..msg)
 
     local T_USER = {
         zhaosan = 1,
@@ -53,6 +54,11 @@ function Login:OnLogin(msg, fid, sid)
             error = ECODE.ERR_NOT_EXIST_USER,
             data = "user not found"
         }
+    end
+
+    if CONF.BASE.MODE_LUA_MAIN then
+        self.BASE:RetMessageIPC(fid, json.encode(ret), sid)
+        return
     end
     self.BASE:RetMessage(fid, json.encode(ret), sid)
 end

@@ -39,7 +39,7 @@ end
 function Main:init(data)
     log.info("Main:init()")
 
-    self.loginServerId = BASE:CreateLvm(CONF.LVM_MODULE.LOGIN, Login:new())
+    self.loginServerId = 0 --BASE:CreateLvm(CONF.LVM_MODULE.LOGIN, Login:new())
     self.roomMgr = roommgr:new()
 
     self.connMgr = connmgr:new({

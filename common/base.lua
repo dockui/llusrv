@@ -1,6 +1,7 @@
 local CMD = require "cmd"
 local log = require "log"
 local CONF = require "conf"
+local json = require "json"
 
 local Base = class("Base")
 
@@ -74,7 +75,7 @@ function Base:_Dispatch(cmd, msg, fid, sid)
 end
 
 function Base:DPTM(tid)  
-    log.info("self.DPTM:"..tid)
+    log.debug("self.DPTM:"..tid)
     local dt = self.TIMER_CB[tid]
     if dt and dt.cb then
         dt.cb(tid)
@@ -89,7 +90,7 @@ function Base:External(...)
 end
 
 function Base:Dispatch(fid, sid, cmd, msg)  
-    log.info("dispatch fid="..fid..";sid="..sid.. ";cmd="..cmd..";msg="..(msg or ""))
+    log.debug("dispatch fid="..fid..";sid="..sid.. ";cmd="..cmd..";msg="..(msg or ""))
 
     local cmd_cb = self.REG_CMD_CB[cmd]
     if cmd_cb then
@@ -171,7 +172,7 @@ function Base:RegSendToClientCB(cb)
 end
 
 function Base:SendToClient(wid, msg, len)   
-    log.info("SendToClient beg:"..wid..", msg:"..msg..";len:"..len)
+    log.debug("SendToClient beg:"..wid..", msg:"..msg..";len:"..len)
 
     if CONF.BASE.MODE_LUA_MAIN then
         if self.cb_send then
@@ -188,7 +189,7 @@ function Base:RegCloseClientCB(cb)
 end
 
 function Base:CloseClient(wid)   
-    log.info("CloseClient beg:"..wid)
+    log.debug("CloseClient beg:"..wid)
 
     if CONF.BASE.MODE_LUA_MAIN then
         if self.cb_closeclt then
@@ -227,6 +228,68 @@ function Base:RetMessage(dest, msg, sid)
 
     self:External(CMD.LVM_CMD_MSG_RET, sid, CMD.LVM_CMD_MSG_RET, dest, msg, #msg)
 end
+
+-- CMD.LVM_CMD_MSG
+function Base:PostMessageIPC(dest, cmd, msg, cb)  
+    local sid = 0
+    if cb then
+        sid = self:NewSID()  
+        self:Reg(sid, cb)
+    end
+
+    if CONF.BASE.MODE_LUA_MAIN then
+        local msg_ipc = {
+            sid = sid,
+            cmd = cmd,
+            msg = msg
+        }
+        if self.cb_ipc_send then
+            self.cb_ipc_send(json.encode(msg_ipc))
+        end
+        return
+    end
+end
+
+-- CMD.LVM_CMD_MSG_RET
+function Base:RetMessageIPC(dest, msg, sid)  
+    sid = sid or 0
+
+    if CONF.BASE.MODE_LUA_MAIN then
+        local msg_ipc = {
+            sid = sid,
+            cmd = CMD.LVM_CMD_MSG_RET,
+            msg = msg
+        }
+        if self.cb_ipc_send then
+            self.cb_ipc_send(json.encode(msg_ipc))
+        end
+        return
+    end
+
+end
+
+function Base:RegIPCSendCB(cb)
+    self.cb_ipc_send = cb
+end
+
+function Base:GetIPCReadCB()
+    return function(handle, err, sock)
+
+      local msgret, err = sock:recvx()
+      -- print("msg from cli="..msg, err)
+      if err then
+        log.error("ipc read err="..tostring(err))
+        return
+      end
+
+      local status,msg,err = pcall(json.decode,msgret)
+      if status and msg and msg.cmd and msg.sid and msg.msg then
+          Base.getInstance():Dispatch(0, msg.sid, msg.cmd, msg.msg)
+      end
+    end
+end
+
+
 
 _G.Dispatch = function(from_id, sid, cmd, msg)  
     -- local m = (string.unpack("i",msg))

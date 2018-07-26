@@ -1,3 +1,4 @@
+local CONF = require "conf"
 local CMD = require "cmd"
 local BASE = require "base"
 local log = require "log"
@@ -41,7 +42,7 @@ function ConnMgr:init(data)
 end
 
 function ConnMgr:OnConnect(msg, fid, sid)
-    print("ConnMgr:OnConnect:"..fid)
+    log.info("ConnMgr:OnConnect:"..fid)
 
 end
 
@@ -62,8 +63,7 @@ function ConnMgr:OnHeart(msg)
 end
 function ConnMgr:OnLogin(msg)
     log.info("ConnMgr:OnLogin:"..msg.fid)
-
-    BASE:PostMessage(self.loginServerId, CMD.REQ_LOGIN, json.encode(msg), function(msg_ret)
+    local logincb = function(msg_ret)
         log.info("ConnMgr:OnLogin ret:"..msg_ret)
         local l_msg = json.decode(msg_ret)
 
@@ -74,7 +74,18 @@ function ConnMgr:OnLogin(msg)
         end
 
         BASE:SendToClient(msg.fid, backMsg, #backMsg)
-    end)
+    end
+
+    if CONF.BASE.MODE_LUA_MAIN then
+        BASE:PostMessageIPC(self.loginServerId, 
+            CMD.REQ_LOGIN, 
+            json.encode(msg), 
+            logincb)
+
+        return
+    end
+
+    BASE:PostMessage(self.loginServerId, CMD.REQ_LOGIN, json.encode(msg), logincb)
 end
 
 function ConnMgr:SetLogin(fid, uid)

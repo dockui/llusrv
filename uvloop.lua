@@ -7,6 +7,9 @@ local ws  = require"lluv.websocket"
 local ut     = require "lluv.utils"
 local socket = require "lluv.luasocket"
 
+local zmq   = require "lzmq"
+uv.poll_zmq = require "lluv.poll_zmq"
+
 require "functions"
 
 local CMD = require "cmd"
@@ -15,6 +18,7 @@ local BASE = require "base"
 local log = require "log"
 local json = require "json"
 
+local ep = arg[1] or "ipc://llusrv"
 
 local UVLoop = class("UVLoop")
 function UVLoop:ctor(obj,data)
@@ -41,6 +45,19 @@ end
 function UVLoop:Run()
     log.info("UVLoop:init()")
 
+    --###
+    local ctx = zmq.context()
+    local cli = ctx:socket{"PAIR", 
+       linger = 0,
+       sndtimeo = 0, rcvtimeo = 0, 
+       connect = ep }
+
+    BASE:RegIPCSendCB(function(msg) 
+        cli:send(msg)
+    end)
+    uv.poll_zmq(cli):start(BASE:GetIPCReadCB())
+
+    --#####
     self._mapClose = {}
     self.t_close = uv.timer():start(1, 2000, handler(self, self.OnTimeClose))
 
@@ -85,10 +102,10 @@ function UVLoop:SendToClient(id, msg, len)
 end
 
 function UVLoop:CloseClient(id)
-    self._mapClose[id] = os.time()
+    -- self._mapClose[id] = os.time()
 
-    -- self:CloseConn(id)
-    -- self:OnDisconn(id)
+    self:CloseConn(id)
+    self:OnDisconn(id)
 end
 
 function UVLoop:on_write(cli, err)
@@ -115,7 +132,7 @@ function UVLoop:on_read(cli, err, data)
         end
         return
     end
-    print ("cli=", cli.data.id,";onread="..data)
+    -- print ("cli=", cli.data.id,";onread="..data)
    
 
     local buffer = cli.data.buffer
@@ -133,7 +150,7 @@ function UVLoop:on_read(cli, err, data)
         end
 
         local line = buffer:read_n(size)
-        log.info("read from client:"..line)
+        log.debug("read from client:"..line)
         
 
         BASE:Dispatch(id, 0, CMD.LVM_CMD_CLIENT_MSG, line)

@@ -53,6 +53,37 @@ local function on_write(cli, err)
   -- cli:write(string.sub(packstr, 5), on_write)
 end
 
+function on_quit(cli)
+  
+
+  uv.timer():start(30000, function() 
+    local packstr = string.pack(">s2","quit")
+    cli:write(packstr)
+    -- cli:close() 
+  end)
+end
+
+function on_write2(cli)
+    local str = json.encode({
+          cmd=CMD.REQ_HEART,
+          data = {
+            msg = "req heart"
+          }
+        })
+    local packstr = string.pack(">s2",str)
+    cli:write(packstr)
+
+local str = json.encode({
+          cmd=CMD.REQ_LOGIN,
+          data = {
+            username = "lisi"
+          }
+        })
+    local packstr = string.pack(">s2",str)
+    cli:write(packstr)
+
+on_quit(cli)
+end
 
 local buffer = ut.Buffer.new("\r\n")
 
@@ -86,7 +117,7 @@ uv.tcp():connect(host, port, function(cli, err)
   if err then return cli:close() end
 
   cli:start_read(read_data)
-  on_write(cli)
+  on_write2(cli)
 end)
 
 uv.run(debug.traceback)
