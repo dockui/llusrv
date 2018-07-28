@@ -53,12 +53,19 @@ local function on_write(cli, err)
   -- cli:write(string.sub(packstr, 5), on_write)
 end
 
+function on_send(cli, str)
+    local packstr = string.pack(">s2",str)
+    cli:write(packstr)
+    print("on send:"..str)
+end
+
 function on_quit(cli)
   
 
   uv.timer():start(30000, function() 
-    local packstr = string.pack(">s2","quit")
-    cli:write(packstr)
+    -- local packstr = string.pack(">s2","quit")
+    -- cli:write(packstr)
+    on_send(cli, "quit")
     -- cli:close() 
   end)
 end
@@ -70,8 +77,7 @@ function on_write2(cli)
             msg = "req heart"
           }
         })
-    local packstr = string.pack(">s2",str)
-    cli:write(packstr)
+    on_send(cli, str)
 
 local str = json.encode({
           cmd=CMD.REQ_LOGIN,
@@ -79,8 +85,7 @@ local str = json.encode({
             username = "lisi"
           }
         })
-    local packstr = string.pack(">s2",str)
-    cli:write(packstr)
+    on_send(cli, str)
 
 on_quit(cli)
 end
@@ -109,7 +114,7 @@ local function read_data(cli, err, data)
   	end
 
     local line = buffer:read_n(size)
-    print("read_data=",line)
+    print("read_data="..line)
   end
 end
 

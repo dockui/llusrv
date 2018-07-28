@@ -10,7 +10,7 @@ package.path = "/usr/local/Cellar/lua/5.3.4_3/share/lua/5.3/?.lua;"..package.pat
 local uv    = require "lluv"
 local zmq   = require "lzmq"
 uv.poll_zmq = require "lluv.poll_zmq"
-
+-- local Pegasus  = require 'lluv.pegasus'
 
 local CMD = require "cmd"
 local BASE = require "base"
@@ -20,10 +20,10 @@ local json = require "json"
 
 local Login = require "m_login"
 
-
 local ep = arg[1] or "ipc://llusrv"
 -- local ep = arg[1] or "tcp://127.0.0.1:5555"
 
+--################
 local ctx = zmq.context()
 local srv = ctx:socket{"PAIR", 
    linger = 0,
@@ -39,8 +39,27 @@ BASE:RegIPCSendCB(function(msg)
 end)
 uv.poll_zmq(srv):start(BASE:GetIPCReadCB())
 
-
+--###############
 local login = Login:new()
+
+
+--#############
+-- local server = Pegasus:new({
+-- 	host = '127.0.0.1',
+--   port='8080',
+--   -- location='.../www',
+--   -- plugins = { Compress:new() }
+-- })
+
+-- server:start(function(req, rep)
+-- 	print(request, ' - precess')
+-- 	request:headers()
+
+-- 	response:statusCode(200)
+-- 	response:addHeader('Content-Type', 'text/plain')
+-- 	response:write('Hello from Pegasus')
+-- end)
+
 
 uv.run()
 
