@@ -1,5 +1,6 @@
 local M = {
     CODE_SUCCESS = 0,
+    ERR_PARAMS = 1000,
     ERR_NOT_EXIST = 1010,
     ERR_ROOM_FULL = 1020,
     ERR_NOT_EXIST_USER = 1030,
@@ -7,6 +8,7 @@ local M = {
 }
 local Desc = {
     [M.CODE_SUCCESS] = "success",
+    [M.ERR_PARAMS] = "params error",
     [M.ERR_NOT_EXIST] = "not exist",
     [M.ERR_ROOM_FULL] = "room is full",
     [M.ERR_NOT_EXIST_USER] = "user not exist",
