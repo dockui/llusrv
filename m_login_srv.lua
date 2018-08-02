@@ -12,6 +12,7 @@ local zmq   = require "lzmq"
 uv.poll_zmq = require "lluv.poll_zmq"
 -- local Pegasus  = require 'lluv.pegasus'
 
+local CONF = require "conf"
 local CMD = require "cmd"
 local BASE = require "base"
 
@@ -20,21 +21,19 @@ local json = require "json"
 
 local Login = require "m_login"
 
-local ep = arg[1] or "ipc://llusrv"
+local ep = CONF.LVM_IPC_NAME[CONF.LVM_MODULE.LOGIN]
 -- local ep = arg[1] or "tcp://127.0.0.1:5555"
 
 --################
 local ctx = zmq.context()
-local srv = ctx:socket{"PAIR", 
-   linger = 0,
-   sndtimeo = 0, rcvtimeo = 0, 
-   bind = ep }
+local srv = ctx:socket{"PAIR", linger = 0,sndtimeo = 0, rcvtimeo = 0, 
+   bind = CONF.LVM_IPC_NAME[CONF.LVM_MODULE.LOGIN] }
 
 print("login server start")
 print("ZMQ   version:", zmq.version(true))
 print("Test endpoint:", ep)
 
-BASE:RegIPCSendCB(function(msg) 
+BASE:RegIPCSendCB(CONF.LVM_MODULE.LOGIN, function(msg) 
 	srv:send(msg)
 end)
 uv.poll_zmq(srv):start(BASE:GetIPCReadCB())

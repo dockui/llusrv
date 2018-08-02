@@ -12,6 +12,7 @@ uv.poll_zmq = require "lluv.poll_zmq"
 
 require "functions"
 
+local CONF = require "conf"
 local CMD = require "cmd"
 local BASE = require "base"
 
@@ -45,17 +46,25 @@ end
 function UVLoop:Run()
     log.info("UVLoop:init()")
 
-    --###
+    --###login
     local ctx = zmq.context()
-    local cli = ctx:socket{"PAIR", 
-       linger = 0,
-       sndtimeo = 0, rcvtimeo = 0, 
-       connect = ep }
+    local cli_login = ctx:socket{"PAIR", linger = 0, sndtimeo = 0, rcvtimeo = 0, 
+        connect = CONF.LVM_IPC_NAME[CONF.LVM_MODULE.LOGIN] }
 
-    BASE:RegIPCSendCB(function(msg) 
-        cli:send(msg)
+    BASE:RegIPCSendCB(CONF.LVM_MODULE.LOGIN, function(msg) 
+        cli_login:send(msg)
     end)
-    uv.poll_zmq(cli):start(BASE:GetIPCReadCB())
+    uv.poll_zmq(cli_login):start(BASE:GetIPCReadCB())
+
+    --##cache
+    local cli_cache = ctx:socket{"PAIR", linger = 0, sndtimeo = 0, rcvtimeo = 0, 
+        connect = CONF.LVM_IPC_NAME[CONF.LVM_MODULE.CACHE] }
+
+    BASE:RegIPCSendCB(CONF.LVM_MODULE.CACHE, function(msg) 
+        cli_cache:send(msg)
+    end)
+    uv.poll_zmq(cli_cache):start(BASE:GetIPCReadCB())
+
 
     --#####
     self._mapClose = {}

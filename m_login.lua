@@ -2,13 +2,12 @@ package.path = "script/?.lua;script/utils/?.lua;script/common/?.lua;"..package.p
 package.cpath = "luaclib/?.so;"..package.cpath
 
 require "functions"
+local CONF = require "conf"
 local CMD = require "cmd"
 local BASE = require "base"
 local log = require "log"
 local json = require "json"
 local ECODE = require "errorcode"
-
-local CONF = require "conf"
 
 
 local Login = class("Login")
@@ -57,7 +56,8 @@ function Login:OnLogin(msg, fid, sid)
     end
 
     if CONF.BASE.MODE_LUA_MAIN then
-        self.BASE:RetMessageIPC(fid, json.encode(ret), sid)
+        self.BASE:RetMessageIPC(CONF.LVM_MODULE.LOGIN, 
+            json.encode(ret), sid)
         return
     end
     self.BASE:RetMessage(fid, json.encode(ret), sid)

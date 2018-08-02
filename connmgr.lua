@@ -5,6 +5,7 @@ local log = require "log"
 local json = require "json"
 local EVENT = require "LuaEvent"
 local ECODE = require "errorcode"
+local cache = require "cache"
 
 local ConnMgr = class("connmgr")
 function ConnMgr:ctor(obj,data)
@@ -81,6 +82,23 @@ function ConnMgr:OnLogin(msg)
             CMD.REQ_LOGIN, 
             json.encode(msg), 
             logincb)
+
+       --  BASE:PostMessageIPC(CONF.LVM_MODULE.CACHE, 
+       --      CMD.LVM_CMD_CACHE_SET, 
+       --      json.encode({key="myname", val="heiei"}))
+       -- BASE:PostMessageIPC(CONF.LVM_MODULE.CACHE, 
+       --      CMD.LVM_CMD_CACHE_GET, 
+       --      json.encode({key="myname"}), 
+       --      function(msg_ret)
+       --          log.info("ConnMgr:OnLogin get myname:"..msg_ret)
+       --      end)
+        cache.set("myname","nimmm")
+
+        cache.get("myname", 
+            function(msg_ret)
+                log.info("ConnMgr:OnLogin get myname:"..msg_ret)
+            end
+            )
 
         return
     end

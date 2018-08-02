@@ -18,6 +18,9 @@ local M = {
     LVM_CMD_CLIENT_CLOSE = 142,
     LVM_CMD_LOG = 150,
 
+    LVM_CMD_CACHE_GET = 160,
+    LVM_CMD_CACHE_SET = 161,
+
     --1000 ~ game cmd
     --请求
     REQ_CREATE_TABLE = 999,

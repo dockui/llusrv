@@ -23,6 +23,7 @@ function Base:ctor()
 
     self.GEN_LVM_ID = 0
     self._mapLvm = {}
+    self._cb_ipc_send = {}
 end
 
 function Base:NewSID()
@@ -243,8 +244,8 @@ function Base:PostMessageIPC(dest, cmd, msg, cb)
             cmd = cmd,
             msg = msg
         }
-        if self.cb_ipc_send then
-            self.cb_ipc_send(json.encode(msg_ipc))
+        if self._cb_ipc_send[dest] then
+            self._cb_ipc_send[dest](json.encode(msg_ipc))
         end
         return
     end
@@ -260,16 +261,17 @@ function Base:RetMessageIPC(dest, msg, sid)
             cmd = CMD.LVM_CMD_MSG_RET,
             msg = msg
         }
-        if self.cb_ipc_send then
-            self.cb_ipc_send(json.encode(msg_ipc))
+        if self._cb_ipc_send[dest] then
+            self._cb_ipc_send[dest](json.encode(msg_ipc))
         end
         return
     end
 
 end
 
-function Base:RegIPCSendCB(cb)
-    self.cb_ipc_send = cb
+function Base:RegIPCSendCB(dest,cb)
+    self._cb_ipc_send[dest] = cb
+    -- self.cb_ipc_send = cb
 end
 
 function Base:GetIPCReadCB()

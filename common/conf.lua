@@ -7,13 +7,19 @@ _M.BASE = {
 }
 
 _M.LVM_MODULE = {
-    LOGIN = 1,
-    ROOM = 2
+	CACHE = 1,
+    LOGIN = 100,
+    ROOM = 200
 }
 
 _M.LVM_MODULE_FILE = {
-    LOGIN = "script/m_login.lua",
-    ROOM = "script/game/room.lua"
+    [_M.LVM_MODULE.LOGIN] = "script/m_login.lua",
+    [_M.LVM_MODULE.ROOM] = "script/game/room.lua"
+}
+
+_M.LVM_IPC_NAME = {
+	[_M.LVM_MODULE.CACHE] = "ipc://llusrv_cache",
+    [_M.LVM_MODULE.LOGIN] = "ipc://llusrv_login"
 }
 
 return _M
