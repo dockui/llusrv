@@ -4,7 +4,7 @@
 -- local tp = "AES-128-CBC"
 -- local key, iv = "abcdabcdabcdabcd", "abcdabcdabcdabcc"
 
-
+-- luarocks install md5
 local des56 = require 'des56'
 local md5 = require"md5"
 
