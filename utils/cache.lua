@@ -32,14 +32,29 @@ _M.set = function(key, val)
   return _M._client:set(key, val)
 end
 
+_M.del = function(key)
+  assert(_M._client, " cache is not connect")
+  return _M._client:del(key)
+end
+
 _M.hget = function(hash, key)
   assert(_M._client, " cache is not connect")
   return _M._client:hget(hash, key)
 end
 
+_M.hmget = function(hash, ...)
+  assert(_M._client, " cache is not connect")
+  return _M._client:hmget(hash, ...)
+end
+
 _M.hset = function(hash, key, val)
   assert(_M._client, " cache is not connect")
   return _M._client:hset(hash, key, val)
+end
+
+_M.hmset = function(hash, ...)
+  assert(_M._client, " cache is not connect")
+  return _M._client:hmset(hash, ...)
 end
 
 _M.hgetall = function(hash)

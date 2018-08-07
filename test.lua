@@ -18,11 +18,14 @@ local socket = require "socket"
 
 
 
--- local cache = require "cache"
--- cache.init()
--- cache.hset("uid:1", "name", "caocaos")
+local cache = require "cache"
+cache.init()
+cache.del("uid:1")
+cache.hmset("uid:1", {name = "caocaos", uid = 1})
 -- cache.hset("uid:1", "uid", 1)
--- print(type(cache.hget("uid:1", "uid")))
+
+dump((cache.hgetall("uid:1s")), "hellO:")
+
 
 -- local ossl = require "ossl"
 
@@ -41,17 +44,18 @@ local socket = require "socket"
 
 -- hc = require('httpclient').new()
 -- res = hc:get('http://www.baidu.com')
+-- hc:set_default("timeout", 5)
 -- if res.body then
 --   print(res.body)
 -- else
 --   print(res.err)
 -- end
 
-local db = require "db"
-db.init()
-db.test()
+-- local db = require "db"
+-- db.init()
+-- db.test()
 
-print(socket.gettime())
+-- print(socket.gettime())
 
-print(os.time())
+-- print(os.time())
 
