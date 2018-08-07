@@ -6,7 +6,7 @@ package.cpath = "/Users/caobo/myroot/third/luasql/src/mysql.so;"..package.cpath
 print (package.cpath)
 
 
-local luasql = require "luasql.mysql"
+local luasql = require "luasql.mysql" --luarocks install luasql-mysql MYSQL_INCDIR=/usr/local/Cellar/mysql/8.0.11/include/mysql
 
 --创建环境对象
 env = assert(luasql.mysql())

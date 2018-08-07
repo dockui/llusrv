@@ -4,6 +4,10 @@
 -- local tp = "AES-128-CBC"
 -- local key, iv = "abcdabcdabcdabcd", "abcdabcdabcdabcc"
 
+local socket = require("socket") 
+--  luarocks install uuid
+local uuid = require("uuid")
+
 -- luarocks install md5
 local des56 = require 'des56'
 local md5 = require"md5"
@@ -48,6 +52,10 @@ _M.md5 = function(text)
 	return mr
 end
 
+_M.uuid = function()
+	uuid.seed()
+	return uuid()
+end
 
 
 return _M

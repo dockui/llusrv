@@ -3,9 +3,9 @@ local CMD = require "cmd"
 local BASE = require "base"
 local json = require "json"
 
-local _M = {
-	
-}
+-- /usr/local/Cellar/lua/5.3.4_3/share/lua/5.3/redis.lua
+local redis = require 'redis' --luarocks install redis-lua
+
 
 local _M = {
 	_store = {}
@@ -18,14 +18,50 @@ function _M.new()
   return setmetatable(M, self)
 end
 
-_M.get = function(key, cb)
+_M.init = function(ip, port)
+  _M._client = redis.connect(ip or '127.0.0.1', port or 6379)
+end
+
+_M.get = function(key)
+  assert(_M._client, " cache is not connect")
+  return _M._client:get(key)
+end
+
+_M.set = function(key, val)
+  assert(_M._client, " cache is not connect")
+  return _M._client:set(key, val)
+end
+
+_M.hget = function(hash, key)
+  assert(_M._client, " cache is not connect")
+  return _M._client:hget(hash, key)
+end
+
+_M.hset = function(hash, key, val)
+  assert(_M._client, " cache is not connect")
+  return _M._client:hset(hash, key, val)
+end
+
+_M.hgetall = function(hash)
+  assert(_M._client, " cache is not connect")
+  return _M._client:hgetall(hash)
+end
+
+_M.hdel = function(hash, ...)
+  assert(_M._client, " cache is not connect")
+  return _M._client:hdel(hash, ...)
+end
+
+
+
+_M.c_get = function(key, cb)
 	BASE:PostMessageIPC(CONF.LVM_MODULE.CACHE, 
             CMD.LVM_CMD_CACHE_GET, 
             json.encode({key=key}), 
             cb)
 end
 
-_M.set = function(key, val)
+_M.c_set = function(key, val)
     BASE:PostMessageIPC(CONF.LVM_MODULE.CACHE, 
         CMD.LVM_CMD_CACHE_SET, 
         json.encode({key=key, val=val}))

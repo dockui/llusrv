@@ -3,6 +3,9 @@ local log = require "log"
 local json = require "json"
 local ECODE = require "errorcode"
 
+local cache = require "cache"
+cache.init()
+
 local _M = {
 	
 }
@@ -20,6 +23,12 @@ _M.login = function(response, params)
 	local msg = {
             name = "hello"
      }
+
+	local sid = params.sid or "0"
+	local uid = cache.get("sid:"..sid)
+	if not uid then
+		
+	end
 
 	_M.output(response, msg)
 end

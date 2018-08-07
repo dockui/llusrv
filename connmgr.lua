@@ -92,13 +92,13 @@ function ConnMgr:OnLogin(msg)
        --      function(msg_ret)
        --          log.info("ConnMgr:OnLogin get myname:"..msg_ret)
        --      end)
-        cache.set("myname","nimmm")
+        -- cache.set("myname","nimmm")
 
-        cache.get("myname", 
-            function(msg_ret)
-                log.info("ConnMgr:OnLogin get myname:"..msg_ret)
-            end
-            )
+        -- cache.get("myname", 
+        --     function(msg_ret)
+        --         log.info("ConnMgr:OnLogin get myname:"..msg_ret)
+        --     end
+        --     )
 
         return
     end
