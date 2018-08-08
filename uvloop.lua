@@ -119,7 +119,7 @@ end
 
 function UVLoop:on_write(cli, err)
     if err then 
-        print ("on_write err=", err)
+        log.error ("on_write err=", err)
         local id = cli.data.id
         if id then
             self:CloseConn(id)
@@ -133,7 +133,7 @@ function UVLoop:on_write(cli, err)
 function UVLoop:on_read(cli, err, data)
     local id = cli.data.id
     if err then 
-        print ("onread err=", err, ";cli=", type(cli), cli)
+        log.error ("onread err=", err, ";cli=", type(cli), cli)
         local id = cli.data.id
         if id then
             self:CloseConn(id)
@@ -159,7 +159,7 @@ function UVLoop:on_read(cli, err, data)
         end
 
         local line = buffer:read_n(size)
-        log.debug("cli="..cli.data.id..";read:"..line)
+        log.debug("read from client:"..line)
         
 
         BASE:Dispatch(id, 0, CMD.LVM_CMD_CLIENT_MSG, line)

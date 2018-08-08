@@ -18,13 +18,13 @@ local socket = require "socket"
 
 
 
-local cache = require "cache"
-cache.init()
-cache.del("uid:1")
-cache.hmset("uid:1", {name = "caocaos", uid = 1})
--- cache.hset("uid:1", "uid", 1)
+-- local cache = require "cache"
+-- cache.init()
+-- cache.del("uid:1")
+-- cache.hmset("uid:1", {name = "caocaos", uid = 1})
+-- -- cache.hset("uid:1", "uid", 1)
 
-dump((cache.hgetall("uid:1s")), "hellO:")
+-- dump((cache.hgetall("uid:1s")), "hellO:")
 
 
 -- local ossl = require "ossl"
@@ -42,14 +42,15 @@ dump((cache.hgetall("uid:1s")), "hellO:")
 -- local mr = ossl.md5("ewq")
 -- print(mr)
 
--- hc = require('httpclient').new()
--- res = hc:get('http://www.baidu.com')
--- hc:set_default("timeout", 5)
--- if res.body then
---   print(res.body)
--- else
---   print(res.err)
--- end
+hc = require('httpclient').new()
+hc:set_default("timeout", 5)
+res = hc:get('http://localhost:9090/api?params={%22action%22:%22login%22,%22sid%22:%22798c1d9e2793f9a7522723b921b01186%22}')
+
+if res.body then
+  print(res.body)
+else
+  print(res.err)
+end
 
 -- local db = require "db"
 -- db.init()

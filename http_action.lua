@@ -24,9 +24,19 @@ function _M.new()
   return setmetatable(M, self)
 end
 
+_M.config = function(response, params)
+	local msg = {
+            
+            ip = "123456",
+            port = "8800"
+     }
+     _M.output(response, msg)
+ end
 -- {type=confirm  game conn confirm 
 -- }
+--http://localhost:9090/api?params={"action":"login","sid":"798c1d9e2793f9a7522723b921b01186"}
 _M.login = function(response, params)
+
 	local msg = {
             name = "null"
      }
@@ -54,7 +64,7 @@ _M.login = function(response, params)
 
 		_M.output(response, msg)
 		return
-	while true
+	until(true)
 
 	_M.output_fail(response, ECODE.ERR_VERIFY_FAILURE)
 end
@@ -68,7 +78,9 @@ _M.output = function(response, data)
             data = data
      }
 
-	response:write(json.encode(ret))
+    local ostr = json.encode(ret)
+    log.info("http response => "..ostr)
+	response:write(ostr)
 end
 
 _M.output_fail = function(response, code)
