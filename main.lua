@@ -22,7 +22,7 @@ local BASE = require "base"
 local log = require "log"
 local json = require "json"
 
-local uvloop = require "uvloop"
+local uvloop = CONF.BASE.MODE_WS and require "uvloop_ws" or require "uvloop"
 
 
 local connmgr = require "connmgr"
