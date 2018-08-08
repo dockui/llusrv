@@ -24,7 +24,7 @@ cache.del("uid:1")
 cache.hmset("uid:1", {name = "caocaos", uid = 1})
 -- cache.hset("uid:1", "uid", 1)
 
-dump((cache.hgetall("uid:1s")), "hellO:")
+dump((cache.hgetall("uid:1")), "hellO:")
 
 
 -- local ossl = require "ossl"
