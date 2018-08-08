@@ -72,7 +72,7 @@ _M.login = function(response, params)
 
     repeat
 		local sid = params.sid or "0"
-		local uid = cache.get(sid..":sid")
+		local uid = cache:get(sid..":sid")
 		if not uid then
 			if params.type == "confirm" then break end
 
@@ -82,13 +82,13 @@ _M.login = function(response, params)
 				})
 			sid = ossl.md5(ossl.uuid())
 
-			cache.set(sid..":sid", uid)
+			cache:set(sid..":sid", uid)
 
 			local key_uid = uid..":uid"
-			cache.hmset(key_uid, {uid=uid, sid=sid, gold=6, name=name})
+			cache:hmset(key_uid, {uid=uid, sid=sid, gold=6, name=name})
 		end
 
-		msg = cache.hgetall(uid..":uid") or {}
+		msg = cache:hgetall(uid..":uid") or {}
 		if msg.sid ~= sid then break end
 
 		_M.output(response, msg)
@@ -100,13 +100,13 @@ end
 
 _M._is_logined = function(sid)
 	local sid = sid or "0"
-	local uid = cache.get(sid..":sid")
+	local uid = cache:get(sid..":sid")
 
 	if not uid then
 		return false
 	end
 
-	local l_sid = cache.hget(uid..":uid", "sid")
+	local l_sid = cache:hget(uid..":uid", "sid")
 	if l_sid ~= sid then 
 		return false 
 	end
@@ -116,26 +116,26 @@ end
 
 _M._get_user_info = function(sid)
 	local sid = sid or "0"
-	local uid = cache.get(sid..":sid")
+	local uid = cache:get(sid..":sid")
 
 	if not uid then
 		return nil
 	end
 
-	local info = cache.hgetall(uid..":uid")
+	local info = cache:hgetall(uid..":uid")
 	return info
 end
 
 _M._set_user_info = function(sid, info)
 	local sid = sid or "0"
-	local uid = cache.get(sid..":sid")
+	local uid = cache:get(sid..":sid")
 
 	if not uid then
 		return nil
 	end
 
 	local key_uid = uid..":uid"
-	cache.hmset(key_uid, info)
+	cache:hmset(key_uid, info)
 end
 
 _M._AllocNewRoomId = function()
@@ -143,7 +143,7 @@ _M._AllocNewRoomId = function()
     repeat  
         ROOM_BEG = ROOM_BEG + 1
 
-        if not cache.exists(ROOM_BEG..":roomid") then
+        if not cache:exists(ROOM_BEG..":roomid") then
             return ROOM_BEG
         end
     until (false)
@@ -159,7 +159,8 @@ _M.create_room = function(response, params)
 	end
 
 	local info = _M._get_user_info(params.sid)
-
+	info.gold = info.gold and tonumber(info.gold) or 0
+	
 	-- gold
 	local gold_need = 2
 	if info.gold == nil or info.gold < gold_need then
@@ -168,13 +169,15 @@ _M.create_room = function(response, params)
 	end
 
 	info.gold = info.gold - gold_need
-	_M._set_user_info(params.sid, info)
+	-- _M._set_user_info(params.sid, info)
+	local key_uid = info.uid..":uid"
+	cache:hset(key_uid, "gold", info.gold)
 
 	-- create_room
 	local roomid = _M._AllocNewRoomId()
 	local key_room = roomid..":roomid"
-	cache.hmset(key_room, {uid=info.uid, vid=params.vid, num=params.num, roomid=roomid})
-	cache.expire(key_room, 24*3600) -- one day
+	cache:hmset(key_room, {uid=info.uid, vid=params.vid, num=params.num, roomid=roomid})
+	cache:expire(key_room, 24*3600) -- one day
 
 	local msg = {
             roomid = roomid
@@ -184,16 +187,34 @@ _M.create_room = function(response, params)
 
 -- {"sid":"", "roomid":1001}
 _M.join_room = function(response, params)
+	if not params.roomid then
+		_M.output_fail(response, ECODE.ERR_PARAMS)
+		return
+	end
+
 	if not _M._is_logined(params.sid) then
 		_M.output_fail(response, ECODE.ERR_VERIFY_FAILURE)
 		return
 	end
 
 	local info = _M._get_user_info(params.sid)
+	info.inroomid = info.inroomid and tonumber(info.inroomid) or nil
 
-	local key_room = roomid..":roomid"
-	local room_info = cache.hgetall(key_room)
+	if info.inroomid and info.inroomid ~= params.roomid then
+		_M.output_fail(response, ECODE.ERR_ALREADY_IN_ROOM)
+		return
+	end
+
+	local roomid = params.roomid or info.inroomid or "0"
+
+	local key_room = params.roomid..":roomid"
+	local room_info = cache:hgetall(key_room)
 	local num = room_info.num or 4
+
+	if not room_info.uid or not room_info.vid or not room_info.roomid then
+		_M.output_fail(response, ECODE.ERR_NOT_EXIST)
+		return
+	end
 
 	local isExist = false
 	local null_index = nil
@@ -209,27 +230,23 @@ _M.join_room = function(response, params)
 		end
 	end
 
-	if isExist then
-		_M.output_fail(response, ECODE.ERR_ALREADY_IN_ROOM)
-		return
+	if not isExist  then
+		if not null_index then
+			_M.output_fail(response, ECODE.ERR_ROOM_FULL)
+			return
+		end
+
+		local mem = "member_"..null_index
+		-- room_info[mem] = info.uid
+
+		cache:hset(key_room, mem, info.uid)
+		cache:expire(key_room, 24*3600) -- one day
+
+		--set in room
+		info.inroomid = room_info.roomid
+		local key_uid = info.uid..":uid"
+		cache:hset(key_uid, "inroomid", room_info.roomid)
 	end
-
-	if not null_index then
-		_M.output_fail(response, ECODE.ERR_ROOM_FULL)
-		return
-	end
-
-
-	local mem = "member_"..null_index
-	room_info[mem] = info.uid
-
-	cache.hmset(key_room, room_info)
-	cache.expire(key_room, 24*3600) -- one day
-
-	--set in room
-	info.inroomid = room_info.roomid
-	local key_uid = info.uid..":uid"
-	cache.hmset(key_uid, info)
 
 	_M.output(response, room_info)
 end
@@ -242,10 +259,16 @@ _M.exit_room = function(response, params)
 	end
 
 	local info = _M._get_user_info(params.sid)
-
+	local roomid = params.roomid or info.inroomid or "0"
+	
 	local key_room = roomid..":roomid"
-	local room_info = cache.hgetall(key_room)
+	local room_info = cache:hgetall(key_room)
 	local num = room_info.num or 4
+
+	if not room_info.uid or not room_info.vid or not room_info.roomid then
+		_M.output_fail(response, ECODE.ERR_NOT_EXIST)
+		return
+	end
 
 	local find_index = nil
 	local null_index = nil
@@ -264,16 +287,16 @@ _M.exit_room = function(response, params)
 	if find_index then
 		local mem = "member_"..find_index
 		room_info[mem] = nil
-	end
 
-	cache.hmset(key_room, room_info)
-	cache.expire(key_room, 24*3600) -- one day
+		cache:hdel(key_room, mem)
+		cache:expire(key_room, 24*3600) -- one day
+	end
 
 	--clear in room
 	if info.inroomid then
 		info.inroomid = nil
 		local key_uid = info.uid..":uid"
-		cache.hmset(key_uid, info)
+		cache:hdel(key_uid, "inroomid")
 	end
 
 	_M.output(response, room_info)
