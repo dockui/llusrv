@@ -212,6 +212,13 @@ _M.join_room = function(response, params)
 	local num = room_info.num or 4
 
 	if not room_info.uid or not room_info.vid or not room_info.roomid then
+		--clear in room
+		if info.inroomid then
+			info.inroomid = nil
+			local key_uid = info.uid..":uid"
+			cache:hdel(key_uid, "inroomid")
+		end
+
 		_M.output_fail(response, ECODE.ERR_NOT_EXIST)
 		return
 	end
@@ -241,12 +248,12 @@ _M.join_room = function(response, params)
 
 		cache:hset(key_room, mem, info.uid)
 		cache:expire(key_room, 24*3600) -- one day
-
-		--set in room
-		info.inroomid = room_info.roomid
-		local key_uid = info.uid..":uid"
-		cache:hset(key_uid, "inroomid", room_info.roomid)
 	end
+	
+	--set in room
+	info.inroomid = room_info.roomid
+	local key_uid = info.uid..":uid"
+	cache:hset(key_uid, "inroomid", room_info.roomid)
 
 	_M.output(response, room_info)
 end
@@ -266,6 +273,13 @@ _M.exit_room = function(response, params)
 	local num = room_info.num or 4
 
 	if not room_info.uid or not room_info.vid or not room_info.roomid then
+		--clear in room
+		if info.inroomid then
+			info.inroomid = nil
+			local key_uid = info.uid..":uid"
+			cache:hdel(key_uid, "inroomid")
+		end
+
 		_M.output_fail(response, ECODE.ERR_NOT_EXIST)
 		return
 	end
