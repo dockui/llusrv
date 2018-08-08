@@ -32,8 +32,12 @@ server:start(function (request, response)
 				break
 			end
 
-			dump(params, "params")
+
+			-- dump(params, "params")
 			params = string.urldecode(params.params)
+			
+			log.info("http request => "..params)
+
 			local status,params = pcall(json.decode,params)
 			if not status or not params then
 				errcode = ECODE.ERR_PARAMS
