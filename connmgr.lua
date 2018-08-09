@@ -68,12 +68,63 @@ function ConnMgr:OnLogin(msg)
         log.info("ConnMgr:OnLogin ret:"..msg_ret)
         local l_msg = json.decode(msg_ret)
 
-        local backMsg = msg_ret
+        repeat
+            if l_msg.error ~= 0 then
+                break
+            end
 
-        if l_msg.error == 0 then
+    --  1) "uid"
+    --  2) "41"
+    --  3) "num"
+    --  4) "4"
+    --  5) "roomid"
+    --  6) "626123"
+    --  7) "vid"
+    --  8) "1001"
+    --  9) "member_1"
+    -- 10) "41"
+            local inroom_info = msg_ret.data.inroom_info or {}
+            -- local num = room_info.num or 4
+
+            if not inroom_info.roomid then
+                log.error("connect to login failue: room not exist")
+
+                l_msg.error = ECODE.ERR_NOT_EXIST
+                l_msg.data = ECODE.ErrDesc(ECODE.ERR_NOT_EXIST)
+                break
+            end
+
+            local find_index = nil
+            for i=1, inroom_info.num do
+                local mem = "member_"..i
+                if room_info[mem] == l_msg.uid then
+                    find_index = i
+                    break
+                end
+            end
+            if not find_index then
+                log.error("connect to login failue: not join room")
+                l_msg.error = ECODE.ERR_NOT_IN_ROOM
+                l_msg.data = ECODE.ErrDesc(ECODE.ERR_NOT_IN_ROOM)
+                break
+            end
+
+            local inroomid = tonumber(inroom_info.roomid)
+            local bExistRoom = self.roomMgr:IsExistRoom(inroomid)
+            if not bExistRoom then
+                self.roomMgr:CreateRoom(inroom_info)
+            else
+                self.roomMgr:UpdateRoom(inroom_info)
+            end
+
+            l_msg.data.fid = msg.fid
+            self.roomMgr:JoinRoomEx(inroomid, l_msg.data)
+            
             self:SetLogin(msg.fid, l_msg.data.uid)
-        end
 
+        until true
+
+        local backMsg = json.encode(l_msg)
         BASE:SendToClient(msg.fid, backMsg, #backMsg)
     end
 
@@ -216,7 +267,7 @@ function ConnMgr:OnMessage(strmsg, fid, sid)
             if uid then
                 local roominfo = self.roomMgr:FindUser(uid)
                 if roominfo then
-                    BASE:GetLvm(roominfo.lvm_roomid).Base:PostMessage(roominfo.lvm_roomid, msg.cmd, strmsg)
+                    BASE:GetLvm(roominfo.lvm_roomid).Base:PostMessage(roominfo.lvm_roomid, msg.cmd, json.encode(msg))
                 end
             end
         end

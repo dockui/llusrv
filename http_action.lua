@@ -2,6 +2,7 @@
 local log = require "log"
 local json = require "json"
 local ECODE = require "errorcode"
+local CMD = require "cmd"
 
 local ossl = require "ossl"
 
@@ -27,28 +28,41 @@ function _M.new()
 end
 
 
-_M.output = function(response, data)
+_M._output = function(response, cmd, data)
 	response:statusCode(200)
 	response:addHeader('Content-Type', 'text/plain')
+
+	if not data then 
+		data = cmd 
+		cmd = nil
+	end
 
 	local ret = {
             error = 0,
             data = data
-     }
+    }
+
+    if cmd then ret.cmd = cmd end
 
     local ostr = json.encode(ret)
     log.info("http response => "..ostr)
 	response:write(ostr)
 end
 
-_M.output_fail = function(response, code)
+_M._output_fail = function(response, cmd, data)
 	response:statusCode(200)
 	response:addHeader('Content-Type', 'text/plain')
 
+	if not data then 
+		data = cmd 
+		cmd = nil
+	end
+
 	local ret = {
-            error = code,
-            data = ECODE.ErrDesc(code)
-     }
+            error = data,
+            data = ECODE.ErrDesc(data)
+    }
+    if cmd then ret.cmd = cmd end
 
 	response:write(json.encode(ret))
 end
@@ -59,7 +73,7 @@ _M.config = function(response, params)
             ip = "123456",
             port = "8800"
      }
-     _M.output(response, msg)
+     _M._output(response, msg)
  end
 -- {type=confirm  game conn confirm 
 -- }
@@ -74,7 +88,7 @@ _M.login = function(response, params)
 		local sid = params.sid or "0"
 		local uid = cache:get(sid..":sid")
 		if not uid then
-			if params.type == "confirm" then break end
+			if params.cmd == CMD.REQ_LOGIN then break end
 
 			local name = nick.new()
 			uid = db.insert("T_USER", {
@@ -91,11 +105,16 @@ _M.login = function(response, params)
 		msg = cache:hgetall(uid..":uid") or {}
 		if msg.sid ~= sid then break end
 
-		_M.output(response, msg)
+		if params.cmd == CMD.REQ_LOGIN then
+			msg.inroom_info = msg.inroomid and cache:hgetall(msg.inroomid..":roomid") 
+			-- msg.cmd = CMD.RES_LOGIN
+		end
+
+		_M._output(response, CMD.RES_LOGIN, msg)
 		return
 	until(true)
 
-	_M.output_fail(response, ECODE.ERR_VERIFY_FAILURE)
+	_M._output_fail(response, CMD.RES_LOGIN, ECODE.ERR_VERIFY_FAILURE)
 end
 
 _M._is_logined = function(sid)
@@ -154,7 +173,7 @@ end
 -- {"sid":"", "vid":1001, "num":4 }
 _M.create_room = function(response, params)
 	if not _M._is_logined(params.sid) then
-		_M.output_fail(response, ECODE.ERR_VERIFY_FAILURE)
+		_M._output_fail(response, ECODE.ERR_VERIFY_FAILURE)
 		return
 	end
 
@@ -164,7 +183,7 @@ _M.create_room = function(response, params)
 	-- gold
 	local gold_need = 2
 	if info.gold == nil or info.gold < gold_need then
-		_M.output_fail(response, ECODE.ERR_GOLD_NOT_ENOUGH)
+		_M._output_fail(response, ECODE.ERR_GOLD_NOT_ENOUGH)
 		return
 	end
 
@@ -182,18 +201,18 @@ _M.create_room = function(response, params)
 	local msg = {
             roomid = roomid
      }
-     _M.output(response, msg)
+     _M._output(response, msg)
  end
 
 -- {"sid":"", "roomid":1001}
 _M.join_room = function(response, params)
 	if not params.roomid then
-		_M.output_fail(response, ECODE.ERR_PARAMS)
+		_M._output_fail(response, ECODE.ERR_PARAMS)
 		return
 	end
 
 	if not _M._is_logined(params.sid) then
-		_M.output_fail(response, ECODE.ERR_VERIFY_FAILURE)
+		_M._output_fail(response, ECODE.ERR_VERIFY_FAILURE)
 		return
 	end
 
@@ -201,7 +220,7 @@ _M.join_room = function(response, params)
 	info.inroomid = info.inroomid and tonumber(info.inroomid) or nil
 
 	if info.inroomid and info.inroomid ~= params.roomid then
-		_M.output_fail(response, ECODE.ERR_ALREADY_IN_ROOM)
+		_M._output_fail(response, ECODE.ERR_ALREADY_IN_ROOM)
 		return
 	end
 
@@ -219,7 +238,7 @@ _M.join_room = function(response, params)
 			cache:hdel(key_uid, "inroomid")
 		end
 
-		_M.output_fail(response, ECODE.ERR_NOT_EXIST)
+		_M._output_fail(response, ECODE.ERR_NOT_EXIST)
 		return
 	end
 
@@ -239,7 +258,7 @@ _M.join_room = function(response, params)
 
 	if not isExist  then
 		if not null_index then
-			_M.output_fail(response, ECODE.ERR_ROOM_FULL)
+			_M._output_fail(response, ECODE.ERR_ROOM_FULL)
 			return
 		end
 
@@ -249,19 +268,19 @@ _M.join_room = function(response, params)
 		cache:hset(key_room, mem, info.uid)
 		cache:expire(key_room, 24*3600) -- one day
 	end
-	
+
 	--set in room
 	info.inroomid = room_info.roomid
 	local key_uid = info.uid..":uid"
 	cache:hset(key_uid, "inroomid", room_info.roomid)
 
-	_M.output(response, room_info)
+	_M._output(response, room_info)
 end
 
 -- {"sid":"", "roomid":1001}
 _M.exit_room = function(response, params)
 	if not _M._is_logined(params.sid) then
-		_M.output_fail(response, ECODE.ERR_VERIFY_FAILURE)
+		_M._output_fail(response, ECODE.ERR_VERIFY_FAILURE)
 		return
 	end
 
@@ -280,7 +299,7 @@ _M.exit_room = function(response, params)
 			cache:hdel(key_uid, "inroomid")
 		end
 
-		_M.output_fail(response, ECODE.ERR_NOT_EXIST)
+		_M._output_fail(response, ECODE.ERR_NOT_EXIST)
 		return
 	end
 
@@ -313,7 +332,7 @@ _M.exit_room = function(response, params)
 		cache:hdel(key_uid, "inroomid")
 	end
 
-	_M.output(response, room_info)
+	_M._output(response, room_info)
 end
 
 return _M

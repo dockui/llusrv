@@ -9,6 +9,9 @@ local log = require "log"
 local json = require "json"
 local ECODE = require "errorcode"
 
+local hc = require('httpclient').new()
+
+hc:set_default("timeout", 5)
 
 local Login = class("Login")
 function Login:ctor(obj,data)
@@ -28,33 +31,59 @@ end
 function Login:OnLogin(msg, fid, sid)
     log.info("Login:OnLogin:"..msg)
 
-    local T_USER = {
-        zhaosan = 1,
-        lisi = 2,
-        wangwu = 3,
-        zhaoliu = 4
-    }
     local msg = json.decode(msg)
 
-    local username = msg.data.username
-    local uid = T_USER[username]
+    -- local T_USER = {
+    --     zhaosan = 1,
+    --     lisi = 2,
+    --     wangwu = 3,
+    --     zhaoliu = 4
+    -- }
+    
+
+    -- local username = msg.data.username
+    -- local uid = T_USER[username]
+    -- local ret 
+    -- if uid ~= nil then
+    --     ret = {
+    --         cmd = CMD.RES_LOGIN,
+    --         error = 0,
+    --         data = {
+    --             uid = uid
+    --         }
+    --     }
+    -- else
+    --     ret = {
+    --         cmd = CMD.RES_LOGIN,
+    --         error = ECODE.ERR_NOT_EXIST_USER,
+    --         data = "user not found"
+    --     }
+    -- end
+
+    local params = {
+        action = "login",
+        cmd = msg.cmd
+    }
+    table.merge(params, msg.data)
+    params = json.encode(params)
+    params = string.urlencode(params)
+
     local ret 
-    if uid ~= nil then
-        ret = {
-            cmd = CMD.RES_LOGIN,
-            error = 0,
-            data = {
-                uid = uid
-            }
-        }
+
+    res = hc:get('http://localhost:9090/api?params='..params)
+    if res.body then
+       ret = res.body
     else
+        log.error("request login api failure:"..res.err)
         ret = {
             cmd = CMD.RES_LOGIN,
-            error = ECODE.ERR_NOT_EXIST_USER,
-            data = "user not found"
+            error = ECODE.CODE_UNKNOW,
+            data = ECODE.ErrDesc(ECODE.CODE_UNKNOW)
         }
     end
 
+    log.debug("request login api:".. ret)
+    
     if CONF.BASE.MODE_LUA_MAIN then
         self.BASE:RetMessageIPC(CONF.LVM_MODULE.LOGIN, 
             json.encode(ret), sid)

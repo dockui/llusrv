@@ -65,6 +65,16 @@ function RoomMgr:JoinRoom(roomid, fid, uid)
     })) 
 end
 
+function RoomMgr:JoinRoomEx(roomid, data)
+    local roominfo = self._list_room[roomid]
+    if nil == roominfo then
+        -- (roominfo.lvm_roomid)
+        return ECODE.ERR_NOT_EXIST
+    end
+
+    BASE:PostMessage(roominfo.lvm_roomid, CMD.REQ_ENTERTABLE, json.encode(data)) 
+end
+
 function RoomMgr:IsExistRoom(roomid)
     return self._list_room[roomid] ~= nil
 end
@@ -77,21 +87,50 @@ function RoomMgr:RemoveRoom(roomid)
     self._list_room[roomid] = nil
 end
 
-function RoomMgr:CreateRoom(vid, count)
+function RoomMgr:CreateRoom(data)
     log.info("RoomMgr:CreateRoom()")
     
     local lvm_roomid = BASE:CreateLvm(CONF.LVM_MODULE.ROOM, Room:new())
 
-    local newid = self:AllocNewId()
-    self._list_room[newid] = {
-        lvm_roomid = lvm_roomid,
-        roomid = newid,
-        vid=vid,
-        count=count,
-        user={}
-    }
-    return newid
+    -- local newid = self:AllocNewId()
+    -- self._list_room[newid] = {
+    --     lvm_roomid = lvm_roomid,
+    --     roomid = newid,
+    --     vid=vid,
+    --     count=count,
+    --     user={}
+    -- }
+
+    data.lvm_roomid = lvm_roomid
+    
+    data.user = {}
+    for i=1, data.num do
+        local mem = "member_"..i
+        data.user[i] = tonumber(data[mem])
+    end
+
+    self._list_room[data.roomid] = data
+
+    return data.roomid
 end
+
+function RoomMgr:UpdateRoom(data)
+    local data_ori = self._list_room[data.roomid]
+    
+    local lvm_roomid = data_ori.lvm_roomid
+    data.lvm_roomid = lvm_roomid
+
+    data.user = {}
+    for i=1, data.num do
+        local mem = "member_"..i
+        data.user[i] = tonumber(data[mem])
+    end
+
+    self._list_room[data.roomid] = data
+
+    return data.roomid
+end
+
 
 function RoomMgr:AllocNewId()
     local ROOM_BEG = 626121
