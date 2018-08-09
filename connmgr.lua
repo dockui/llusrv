@@ -29,8 +29,9 @@ function ConnMgr:init(data)
     self.lst_reg_event = {
         [CMD.REQ_HEART] = self.OnHeart,
         [CMD.REQ_LOGIN] = self.OnLogin,
-        [CMD.REQ_CREATE_TABLE] = self.OnCreateTable,
-        [CMD.REQ_ENTERTABLE] = self.OnEnterTable,       
+        [CMD.REQ_EXIT] = self.OnExitRoom
+        -- [CMD.REQ_CREATE_TABLE] = self.OnCreateTable,
+        -- [CMD.REQ_ENTERTABLE] = self.OnEnterTable,       
     }
     for i,v in pairs(self.lst_reg_event) do
         EVENT:addEventListener(i, self, v)
@@ -83,7 +84,7 @@ function ConnMgr:OnLogin(msg)
     --  8) "1001"
     --  9) "member_1"
     -- 10) "41"
-            local inroom_info = msg_ret.data.inroom_info or {}
+            local inroom_info = l_msg.data.inroom_info or {}
             -- local num = room_info.num or 4
 
             if not inroom_info.roomid then
@@ -172,6 +173,54 @@ function ConnMgr:GetLogin(fid, uid)
     return self.mapLoginFidToUid[fid]
 end
 
+function ConnMgr:OnExitRoom(msg)
+   log.info("ConnMgr:OnExitRoom:"..msg.fid)
+   
+   local uid = self:GetLogin(msg.fid)
+
+   local exit_cb = function(msg_ret)
+        log.info("ConnMgr:OnExitRoom ret:"..msg_ret)
+        local l_msg = json.decode(msg_ret)
+
+        repeat
+            if l_msg.error ~= 0 then
+                break
+            end
+
+            local inroom_info = l_msg.data.inroom_info or {}
+            -- local num = room_info.num or 4
+
+            if not inroom_info.roomid then
+                log.error("connect to login failue: room not exist")
+
+                l_msg.error = ECODE.ERR_NOT_EXIST
+                l_msg.data = ECODE.ErrDesc(ECODE.ERR_NOT_EXIST)
+                break
+            end
+
+            local inroomid = tonumber(inroom_info.roomid)
+            local bExistRoom = self.roomMgr:IsExistRoom(inroomid)
+            if bExistRoom then
+                self.roomMgr:UpdateRoom(inroom_info)
+            end
+
+            --update room
+
+            --broadcast
+
+            self:UnLogin(msg.fid, nil)
+        until true
+    end
+
+   if CONF.BASE.MODE_LUA_MAIN then
+        BASE:PostMessageIPC(self.loginServerId, 
+            CMD.REQ_EXIT, 
+            json.encode(msg), 
+            exit_cb)
+
+    end
+end
+
 function ConnMgr:OnCreateTable(msg)
     log.info("LVM_CMD_CLIENT_OnCreateTable:"..msg.fid)
     
@@ -258,18 +307,32 @@ function ConnMgr:OnMessage(strmsg, fid, sid)
     local status,msg,err = pcall(json.decode,strmsg)
     if status and msg and msg.cmd then
         msg.fid = fid
+
+        local uid = self:GetLogin(msg.fid)
+        if msg.cmd ~= CMD.REQ_LOGIN then
+            if uid == nil then
+                local backMsg = json.encode(
+                    {
+                        cmd = 0,
+                        error = ECODE.ERR_VERIFY_FAILURE,
+                        data = ECODE.ErrDesc(ECODE.ERR_VERIFY_FAILURE)
+                    }
+                )
+                BASE:SendToClient(msg.fid, backMsg, #backMsg)
+                return
+            end
+        end
+
         EVENT:dispatchEvent(msg.cmd, msg)
 
         -- translate to room which not process
         local isProcess = self.lst_reg_event[msg.cmd]
         if not isProcess then
-            local uid = self:GetLogin(msg.fid)
-            if uid then
-                local roominfo = self.roomMgr:FindUser(uid)
-                if roominfo then
-                    BASE:GetLvm(roominfo.lvm_roomid).Base:PostMessage(roominfo.lvm_roomid, msg.cmd, json.encode(msg))
-                end
+            local roominfo = self.roomMgr:FindUser(uid)
+            if roominfo then
+                BASE:GetLvm(roominfo.lvm_roomid).Base:PostMessage(roominfo.lvm_roomid, msg.cmd, json.encode(msg))
             end
+        
         end
     else
         local backMsg = "echo from server:"..strmsg

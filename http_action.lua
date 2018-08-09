@@ -193,15 +193,21 @@ _M.create_room = function(response, params)
 	cache:hset(key_uid, "gold", info.gold)
 
 	-- create_room
+	local room_info = {
+		uid=info.uid, 
+		vid=params.vid, 
+		num=params.num, 
+		roomid=roomid
+	}
 	local roomid = _M._AllocNewRoomId()
 	local key_room = roomid..":roomid"
-	cache:hmset(key_room, {uid=info.uid, vid=params.vid, num=params.num, roomid=roomid})
+	cache:hmset(key_room, room_info)
 	cache:expire(key_room, 24*3600) -- one day
 
-	local msg = {
-            roomid = roomid
-     }
-     _M._output(response, msg)
+	-- local msg = {
+ --            roomid = roomid
+ --     }
+     _M._output(response, room_info)
  end
 
 -- {"sid":"", "roomid":1001}

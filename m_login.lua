@@ -27,6 +27,9 @@ function Login:init(data)
 
     self.BASE:RegCmdCB(CMD.REQ_LOGIN, handler(self, self.OnLogin))
 
+    self.BASE:RegCmdCB(CMD.REQ_EXIT, handler(self, self.OnExit))
+
+
 end
 function Login:OnLogin(msg, fid, sid)
     log.info("Login:OnLogin:"..msg)
@@ -92,6 +95,41 @@ function Login:OnLogin(msg, fid, sid)
     self.BASE:RetMessage(fid, json.encode(ret), sid)
 end
 
+function Login:OnExit(msg, fid, sid)
+    log.info("Login:OnExit:"..msg)
+
+    local msg = json.decode(msg)
+
+    local params = {
+        action = "exit_room"
+    }
+    table.merge(params, msg.data)
+    params = json.encode(params)
+    params = string.urlencode(params)
+
+    local ret 
+
+    res = hc:get('http://localhost:9090/api?params='..params)
+    if res.body then
+       ret = res.body
+    else
+        log.error("request exit_room api failure:"..res.err)
+        ret = {
+            cmd = 0,
+            error = ECODE.CODE_UNKNOW,
+            data = ECODE.ErrDesc(ECODE.CODE_UNKNOW)
+        }
+    end
+
+    log.debug("request exit_room api:".. ret)
+    
+    if CONF.BASE.MODE_LUA_MAIN then
+        self.BASE:RetMessageIPC(CONF.LVM_MODULE.LOGIN, 
+            json.encode(ret), sid)
+        return
+    end
+    self.BASE:RetMessage(fid, json.encode(ret), sid)
+end
 
 -- objLogin = Login:new()
 return Login

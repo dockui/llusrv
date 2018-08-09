@@ -26,7 +26,8 @@ local M = {
     REQ_CREATE_TABLE = 999,
     REQ_HEART = 1000,--心跳
     REQ_LOGIN = 1001,--登录
-
+    REQ_EXIT = 1002, 
+    
     -- REQ_COMMON = 1005,--公用协议
     REQ_CHAT = 1003, --聊天
     REQ_SDAUDIO = 1005,--发送语音
