@@ -19,51 +19,53 @@ function RoomMgr:init(data)
     log.info("RoomMgr:init()")
 
     self._list_room = {}
+    self._map_user_to_room = {}
 end
 
 function RoomMgr:FindUser(userid)
-    for _,v in pairs(self._list_room) do
-        for i,u in pairs(v) do
-            if u == userid then
-                return v
-            end
-        end
-    end
-    return nil
+    -- for _,v in pairs(self._list_room) do
+    --     for i,u in pairs(v) do
+    --         if u == userid then
+    --             return v
+    --         end
+    --     end
+    -- end
+    -- return nil
+    return self._map_user_to_room[userid]
 end
 
-function RoomMgr:AddUser(roomid, userid)
+-- function RoomMgr:AddUser(roomid, userid)
     
-    local room = self:FindUser(userid)
-    if room ~= nil then
-        return ECODE.CODE_SUCCESS, room.roomid
-    end
+--     local room = self:FindUser(userid)
+--     if room ~= nil then
+--         return ECODE.CODE_SUCCESS, room.roomid
+--     end
 
-    local room = self._list_room[roomid]
-    if room == nil then
-        return ECODE.ERR_NOT_EXIST
-    end
+--     local room = self._list_room[roomid]
+--     if room == nil then
+--         return ECODE.ERR_NOT_EXIST
+--     end
 
-    if #room.user >= room.count then
-        return ECODE.ERR_ROOM_FULL
-    end
+--     if #room.user >= room.count then
+--         return ECODE.ERR_ROOM_FULL
+--     end
 
-    room.user[#room.user + 1] = userid
-    return ECODE.CODE_SUCCESS, roomid
-end
+--     room.user[#room.user + 1] = userid
+--     return ECODE.CODE_SUCCESS, roomid
+-- end
 
-function RoomMgr:JoinRoom(roomid, fid, uid)
-    local roominfo = self._list_room[roomid]
-    if nil == roominfo then
-        -- (roominfo.lvm_roomid)
-        return ECODE.ERR_NOT_EXIST
-    end
+-- function RoomMgr:JoinRoom(roomid, fid, uid)
+--     local roominfo = self._list_room[roomid]
+--     if nil == roominfo then
+--         -- (roominfo.lvm_roomid)
+--         return ECODE.ERR_NOT_EXIST
+--     end
 
-    BASE:PostMessage(roominfo.lvm_roomid, CMD.REQ_ENTERTABLE, json.encode({
-        fid = fid,
-        uid = uid
-    })) 
-end
+--     BASE:PostMessage(roominfo.lvm_roomid, CMD.REQ_ENTERTABLE, json.encode({
+--         fid = fid,
+--         uid = uid
+--     })) 
+-- end
 
 function RoomMgr:JoinRoomEx(roomid, data)
     local roominfo = self._list_room[roomid]
@@ -75,6 +77,26 @@ function RoomMgr:JoinRoomEx(roomid, data)
     BASE:PostMessage(roominfo.lvm_roomid, CMD.REQ_ENTERTABLE, json.encode(data)) 
 end
 
+function RoomMgr:ExitUser(roomid, data)
+    local roominfo = self._list_room[roomid]
+    if nil == roominfo then
+        -- (roominfo.lvm_roomid)
+        return ECODE.ERR_NOT_EXIST
+    end
+
+    BASE:PostMessage(roominfo.lvm_roomid, CMD.REQ_EXIT, json.encode(data)) 
+end
+
+function RoomMgr:UpdateUserInfo(roomid, data)
+    local roominfo = self._list_room[roomid]
+    if nil == roominfo then
+        -- (roominfo.lvm_roomid)
+        return ECODE.ERR_NOT_EXIST
+    end
+
+    BASE:PostMessage(roominfo.lvm_roomid, CMD.LVM_CMD_UPDATE_USER_INFO, json.encode(data)) 
+end
+
 function RoomMgr:IsExistRoom(roomid)
     return self._list_room[roomid] ~= nil
 end
@@ -82,6 +104,7 @@ end
 function RoomMgr:RemoveRoom(roomid)
     local roominfo = self._list_room[roomid]
     if roominfo then
+        self:RemoveUserToRoom(roominfo)
         BASE:DelLvm(roominfo.lvm_roomid)
     end
     self._list_room[roomid] = nil
@@ -103,13 +126,15 @@ function RoomMgr:CreateRoom(data)
 
     data.lvm_roomid = lvm_roomid
     
-    data.user = {}
-    for i=1, data.num do
-        local mem = "member_"..i
-        data.user[i] = tonumber(data[mem])
-    end
+    -- data.user = {}
+    -- for i=1, data.num do
+    --     local mem = "member_"..i
+    --     data.user[i] = tonumber(data[mem])
+    -- end
 
     self._list_room[data.roomid] = data
+
+    self:BuildUserToRoom(data)
 
     return data.roomid
 end
@@ -117,18 +142,43 @@ end
 function RoomMgr:UpdateRoom(data)
     local data_ori = self._list_room[data.roomid]
     
+    if not data_ori then
+        return
+    end
+
+    self:RemoveUserToRoom(data_ori)
+
     local lvm_roomid = data_ori.lvm_roomid
     data.lvm_roomid = lvm_roomid
 
-    data.user = {}
-    for i=1, data.num do
-        local mem = "member_"..i
-        data.user[i] = tonumber(data[mem])
-    end
+    -- data.user = {}
+    -- for i=1, data.num do
+    --     local mem = "member_"..i
+    --     data.user[i] = tonumber(data[mem])
+    -- end
 
     self._list_room[data.roomid] = data
 
+    self:BuildUserToRoom(data)
     return data.roomid
+end
+
+function RoomMgr:RemoveUserToRoom(data)
+    for i=1, data.num do
+        local mem = "member_"..i
+        if data[mem] then
+            self._map_user_to_room[tonumber(data[mem]] = nil
+        end
+    end
+end
+
+function RoomMgr:BuildUserToRoom(data)
+    for i=1, data.num do
+        local mem = "member_"..i
+        if data[mem] then
+            self._map_user_to_room[tonumber(data[mem]] = data
+        end
+    end
 end
 
 

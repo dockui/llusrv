@@ -26,13 +26,18 @@ function Room:ctor(obj,data)
 end
 function Room:init(data)
     log.info("Room:init()")
-    self.lst_user = {}
+    self._lst_user = {}
 
     self.BASE:RegCmdCB(CMD.REQ_ENTERTABLE, handler(self, self.OnEnterTable))
+
+    self.BASE:RegCmdCB(CMD.LVM_CMD_UPDATE_USER_INFO, handler(self, self.OnUpdateUserInfo))
+
+    self.BASE:RegCmdCB(CMD.REQ_EXIT, handler(self, self.OnUserExit))
+
 end
 
 function Room:GetUser(uid)
-    for i, v in ipairs(self.lst_user) do
+    for i, v in ipairs(self._lst_user) do
         if v.uid == uid then
             return v
         end
@@ -40,19 +45,62 @@ function Room:GetUser(uid)
     return nil
 end
 
+function Room:OnUserExit(msg)
+    log.info("Room:OnUserExit() "..msg)
+    local msg = json.decode(msg)
+    -- local userinfo = self:GetUser(msg.uid)
+
+    -- table.merge(userinfo, msg)
+    -- room_info
+    self:BuildUserSeatid(msg)
+end
+
+function Room:OnUpdateUserInfo(msg)
+    log.info("Room:OnUpdateUserInfo() "..msg)
+    local msg = json.decode(msg)
+    local userinfo = self:GetUser(msg.uid)
+
+    table.merge(userinfo, msg)
+end
+
+function Room:BuildUserSeatid(data)
+    local lst_user_tmp = {}
+    for i=1, data.num do
+        local mem = "member_"..i
+        if data[mem] then
+            local uid = tonumber(data[mem])
+            local userinfo = self:GetUser(uid)
+            userinfo.seatid = i
+            self.lst_user_tmp[userinfo.fid] = userinfo
+        end
+    end
+    self._lst_user = lst_user_tmp
+end
+
 function Room:OnEnterTable(msg)
     log.info("Room:OnEnterTable() "..msg)
     local msg = json.decode(msg)
+    local room_info = msg.inroom_info or {}
+
+    -- self._lst_user[msg.fid] = msg
+    
+    -- local userinfo = self:GetUser(msg.uid)
+    -- if userinfo then
+    --     userinfo.fid = msg.fid
+    -- else
+    --     self._lst_user[#self._lst_user+1] = msg
+    --     if #self._lst_user == 1 then
+    --         msg.zhu = 1
+    --         msg.zhuang = 1
+    --     end
+    -- end
+
     local userinfo = self:GetUser(msg.uid)
     if userinfo then
-        userinfo.fid = msg.fid
-    else
-        self.lst_user[#self.lst_user+1] = msg
-        if #self.lst_user == 1 then
-            msg.zhu = 1
-            msg.zhuang = 1
-        end
+        table.merge(userinfo, msg)
     end
+
+    self:BuildUserSeatid(room_info)
 
     self:StartGame()
 end

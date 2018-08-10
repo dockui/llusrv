@@ -205,7 +205,8 @@ function ConnMgr:OnExitRoom(msg)
             end
 
             --update room
-
+            -- self.roomMgr:UpdateUserInfo(inroomid, )
+            self.roomMgr:ExitUser(inroomid, {uid=uid})
             --broadcast
 
             self:UnLogin(msg.fid, nil)
@@ -221,80 +222,80 @@ function ConnMgr:OnExitRoom(msg)
     end
 end
 
-function ConnMgr:OnCreateTable(msg)
-    log.info("LVM_CMD_CLIENT_OnCreateTable:"..msg.fid)
+-- function ConnMgr:OnCreateTable(msg)
+--     log.info("LVM_CMD_CLIENT_OnCreateTable:"..msg.fid)
     
-    local uid = self:GetLogin(msg.fid)
-    if uid == nil then
-        local backMsg = json.encode(
-            {
-                cmd = CMD.REQ_CREATE_TABLE,
-                error = ECODE.ERR_VERIFY_FAILURE,
-                data = ECODE.ErrDesc(ECODE.ERR_VERIFY_FAILURE)
-            }
-        )
-        BASE:SendToClient(msg.fid, backMsg, #backMsg)
-        return
-    end
+--     local uid = self:GetLogin(msg.fid)
+--     if uid == nil then
+--         local backMsg = json.encode(
+--             {
+--                 cmd = CMD.REQ_CREATE_TABLE,
+--                 error = ECODE.ERR_VERIFY_FAILURE,
+--                 data = ECODE.ErrDesc(ECODE.ERR_VERIFY_FAILURE)
+--             }
+--         )
+--         BASE:SendToClient(msg.fid, backMsg, #backMsg)
+--         return
+--     end
 
-    local roomid = self.roomMgr:CreateRoom(1001, 4)
+--     local roomid = self.roomMgr:CreateRoom(1001, 4)
 
-    local ret 
-    ret = {
-        cmd = CMD.REQ_CREATE_TABLE,
-        error = 0,
-        data = {
-            roomid = roomid
-        }
-    }
-    local backMsg = json.encode(ret)
-    BASE:SendToClient(msg.fid, backMsg, #backMsg)
-end
+--     local ret 
+--     ret = {
+--         cmd = CMD.REQ_CREATE_TABLE,
+--         error = 0,
+--         data = {
+--             roomid = roomid
+--         }
+--     }
+--     local backMsg = json.encode(ret)
+--     BASE:SendToClient(msg.fid, backMsg, #backMsg)
+-- end
 
-function ConnMgr:OnEnterTable(msg)
-    log.info("LVM_CMD_CLIENT_OnEnterTable:"..msg.fid)
-    -- roomid 
-    local uid = self:GetLogin(msg.fid)
-    if uid == nil then
-        local backMsg = json.encode(
-            {
-                cmd = CMD.REQ_ENTERTABLE,
-                error = ECODE.ERR_VERIFY_FAILURE,
-                data = ECODE.ErrDesc(ECODE.ERR_VERIFY_FAILURE)
-            }
-        )
-        BASE:SendToClient(msg.fid, backMsg, #backMsg)
-        return
-    end
+-- function ConnMgr:OnEnterTable(msg)
+--     log.info("LVM_CMD_CLIENT_OnEnterTable:"..msg.fid)
+--     -- roomid 
+--     local uid = self:GetLogin(msg.fid)
+--     if uid == nil then
+--         local backMsg = json.encode(
+--             {
+--                 cmd = CMD.REQ_ENTERTABLE,
+--                 error = ECODE.ERR_VERIFY_FAILURE,
+--                 data = ECODE.ErrDesc(ECODE.ERR_VERIFY_FAILURE)
+--             }
+--         )
+--         BASE:SendToClient(msg.fid, backMsg, #backMsg)
+--         return
+--     end
 
-    local code, roomid = self.roomMgr:AddUser(msg.data.roomid, uid)
+--     local code, roomid = self.roomMgr:AddUser(msg.data.roomid, uid)
     
-    if code == ECODE.CODE_SUCCESS then
-        self.roomMgr:JoinRoom(roomid, msg.fid, uid)
+--     if code == ECODE.CODE_SUCCESS then
+--         self.roomMgr:JoinRoom(roomid, msg.fid, uid)
 
-        local backMsg = json.encode(
-            {
-                cmd = CMD.REQ_ENTERTABLE,
-                error = 0,
-                data = {
-                    roomid = roomid
-                }
-            }
-        )
-        BASE:SendToClient(msg.fid, backMsg, #backMsg)
-    else
-        local backMsg = json.encode(
-            {
-                cmd = CMD.REQ_ENTERTABLE,
-                error = code,
-                data = ECODE.ErrDesc(code)
-            }
-        )
-        BASE:SendToClient(msg.fid, backMsg, #backMsg)
-    end
+--         local backMsg = json.encode(
+--             {
+--                 cmd = CMD.REQ_ENTERTABLE,
+--                 error = 0,
+--                 data = {
+--                     roomid = roomid
+--                 }
+--             }
+--         )
+--         BASE:SendToClient(msg.fid, backMsg, #backMsg)
+--     else
+--         local backMsg = json.encode(
+--             {
+--                 cmd = CMD.REQ_ENTERTABLE,
+--                 error = code,
+--                 data = ECODE.ErrDesc(code)
+--             }
+--         )
+--         BASE:SendToClient(msg.fid, backMsg, #backMsg)
+--     end
 
 
-end
+-- end
 
 function ConnMgr:OnMessage(strmsg, fid, sid)
     log.info("LVM_CMD_CLIENT_MSG:"..fid..";msg:"..strmsg)

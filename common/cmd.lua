@@ -21,6 +21,8 @@ local M = {
     LVM_CMD_CACHE_GET = 160,
     LVM_CMD_CACHE_SET = 161,
 
+    LVM_CMD_UPDATE_USER_INFO = 170,
+
     --1000 ~ game cmd
     --请求
     REQ_CREATE_TABLE = 999,
