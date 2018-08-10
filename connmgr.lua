@@ -307,9 +307,8 @@ function ConnMgr:OnMessage(strmsg, fid, sid)
     --RESPONSE: {cmd=2, error=0, data={}}
     local status,msg,err = pcall(json.decode,strmsg)
     if status and msg and msg.cmd then
-        msg.fid = fid
-
-        local uid = self:GetLogin(msg.fid)
+        
+        local uid = self:GetLogin(fid)
         if msg.cmd ~= CMD.REQ_LOGIN then
             if uid == nil then
                 local backMsg = json.encode(
@@ -323,6 +322,9 @@ function ConnMgr:OnMessage(strmsg, fid, sid)
                 return
             end
         end
+
+        msg.fid = fid
+        msg.uid = uid
 
         EVENT:dispatchEvent(msg.cmd, msg)
 
