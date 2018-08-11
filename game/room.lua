@@ -9,6 +9,7 @@
 -- require("mobdebug").start()
 
 require "functions"
+local CONF = require "conf"
 local CMD = require "cmd"
 local BASE = require "base"
 local log = require "log"
@@ -66,13 +67,21 @@ end
 function Room:BuildUserSeatid(data)
     local lst_user_tmp = {}
     for i=1, data.num do
+        -- repeat
         local mem = "member_"..i
         if data[mem] then
             local uid = tonumber(data[mem])
             local userinfo = self:GetUser(uid)
+            if not userinfo then
+                log.error("build seatid not found:"..uid)
+                goto continue
+            end
+
             userinfo.seatid = i
-            self.lst_user_tmp[userinfo.fid] = userinfo
+            lst_user_tmp[userinfo.uid] = userinfo
         end
+        ::continue::
+        -- until true
     end
     self._lst_user = lst_user_tmp
 end
@@ -98,6 +107,8 @@ function Room:OnEnterTable(msg)
     local userinfo = self:GetUser(msg.uid)
     if userinfo then
         table.merge(userinfo, msg)
+    else
+        self._lst_user[msg.uid] = msg
     end
 
     self:BuildUserSeatid(room_info)

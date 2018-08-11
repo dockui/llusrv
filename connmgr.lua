@@ -67,8 +67,18 @@ function ConnMgr:OnLogin(msg)
     log.info("ConnMgr:OnLogin:"..msg.fid)
     local logincb = function(msg_ret)
         log.info("ConnMgr:OnLogin ret:"..msg_ret)
-        local l_msg = json.decode(msg_ret)
-
+        local type_ret = type(msg_ret)
+        local l_msg = type_ret == "string" and json.decode(msg_ret) or msg_ret
+        -- local type_ret2 = type(l_msg)
+        -- for k, v in pairs(l_msg) do
+        --     print(k, v)
+        -- end
+        
+        -- local e = l_msg.error
+        -- local c = l_msg.cmd
+        -- local d = l_msg.data
+        dump(l_msg, "l_msg")
+        
         repeat
             if l_msg.error ~= 0 then
                 break
@@ -87,18 +97,18 @@ function ConnMgr:OnLogin(msg)
             local inroom_info = l_msg.data.inroom_info or {}
             -- local num = room_info.num or 4
 
-            if not inroom_info.roomid then
-                log.error("connect to login failue: room not exist")
+            if not l_msg.data.inroomid then
+                log.error("connect to login failue: not in room")
 
-                l_msg.error = ECODE.ERR_NOT_EXIST
-                l_msg.data = ECODE.ErrDesc(ECODE.ERR_NOT_EXIST)
+                l_msg.error = ECODE.ERR_NOT_IN_ROOM
+                l_msg.data = ECODE.ErrDesc(ECODE.ERR_NOT_IN_ROOM)
                 break
             end
 
             local find_index = nil
             for i=1, inroom_info.num do
                 local mem = "member_"..i
-                if room_info[mem] == l_msg.uid then
+                if inroom_info[mem] == l_msg.data.uid then
                     find_index = i
                     break
                 end
@@ -121,7 +131,7 @@ function ConnMgr:OnLogin(msg)
             l_msg.data.fid = msg.fid
             self.roomMgr:JoinRoomEx(inroomid, l_msg.data)
             
-            self:SetLogin(msg.fid, l_msg.data.uid)
+            self:SetLogin(msg.fid, tonumber(l_msg.data.uid))
 
         until true
 
@@ -159,18 +169,19 @@ function ConnMgr:OnLogin(msg)
 end
 
 function ConnMgr:SetLogin(fid, uid)
-    log.info("ConnMgr:SetLogin: fid="..fid..";uid"..uid)
+    log.info("ConnMgr:SetLogin: fid="..fid..";uid="..uid)
     self.mapLoginFidToUid[fid] = uid
 end
 
 function ConnMgr:UnLogin(fid, uid)
-    log.info("ConnMgr:UnLogin:")
+    log.info("ConnMgr:UnLogin:"..fid)
     self.mapLoginFidToUid[fid] = nil
 end
 
 function ConnMgr:GetLogin(fid, uid)
-    log.info("ConnMgr:GetLogin: fid="..fid..";uid")
-    return self.mapLoginFidToUid[fid]
+    local uid = self.mapLoginFidToUid[fid]
+    log.info("ConnMgr:GetLogin: fid="..fid..";uid="..(uid or "null"))
+    return uid
 end
 
 function ConnMgr:OnExitRoom(msg)
@@ -187,16 +198,16 @@ function ConnMgr:OnExitRoom(msg)
                 break
             end
 
-            local inroom_info = l_msg.data.inroom_info or {}
+            local inroom_info = l_msg.data
             -- local num = room_info.num or 4
 
-            if not inroom_info.roomid then
-                log.error("connect to login failue: room not exist")
+            -- if not inroom_info.roomid then
+            --     log.error("connect to login failue: room not exist")
 
-                l_msg.error = ECODE.ERR_NOT_EXIST
-                l_msg.data = ECODE.ErrDesc(ECODE.ERR_NOT_EXIST)
-                break
-            end
+            --     l_msg.error = ECODE.ERR_NOT_EXIST
+            --     l_msg.data = ECODE.ErrDesc(ECODE.ERR_NOT_EXIST)
+            --     break
+            -- end
 
             local inroomid = tonumber(inroom_info.roomid)
             local bExistRoom = self.roomMgr:IsExistRoom(inroomid)
@@ -307,7 +318,7 @@ function ConnMgr:OnMessage(strmsg, fid, sid)
     --RESPONSE: {cmd=2, error=0, data={}}
     local status,msg,err = pcall(json.decode,strmsg)
     if status and msg and msg.cmd then
-        
+
         local uid = self:GetLogin(fid)
         if msg.cmd ~= CMD.REQ_LOGIN then
             if uid == nil then
@@ -318,7 +329,8 @@ function ConnMgr:OnMessage(strmsg, fid, sid)
                         data = ECODE.ErrDesc(ECODE.ERR_VERIFY_FAILURE)
                     }
                 )
-                BASE:SendToClient(msg.fid, backMsg, #backMsg)
+                log.warn("Response:"..backMsg)
+                BASE:SendToClient(fid, backMsg, #backMsg)
                 return
             end
         end
@@ -333,7 +345,7 @@ function ConnMgr:OnMessage(strmsg, fid, sid)
         if not isProcess then
             local roominfo = self.roomMgr:FindUser(uid)
             if roominfo then
-                BASE:GetLvm(roominfo.lvm_roomid).Base:PostMessage(roominfo.lvm_roomid, msg.cmd, json.encode(msg))
+                BASE:GetLvm(roominfo.lvm_roomid).BASE:PostMessage(roominfo.lvm_roomid, msg.cmd, json.encode(msg))
             end
         
         end

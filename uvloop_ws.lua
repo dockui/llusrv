@@ -73,6 +73,8 @@ function UVLoop:Run()
     BASE:RegCloseClientCB(handler(self, self.CloseClient))
 
     
+    log.info("server:bind=>"..wsurl.."/"..sprot)
+    
     local server = ws.new()
     server:bind(wsurl, sprot, function(server, err)
         if err then
@@ -120,7 +122,7 @@ function UVLoop:on_read(cli, err, data)
         end
         return
     end
-    log.info("cli="..cli.data.id..";onread="..data)
+    log.debug("cli="..cli.data.id..";onread="..data)
 
     BASE:Dispatch(id, 0, CMD.LVM_CMD_CLIENT_MSG, data)
 end

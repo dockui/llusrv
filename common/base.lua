@@ -211,7 +211,7 @@ function Base:PostMessage(dest, cmd, msg, cb)
     end
 
     if CONF.BASE.MODE_LUA_MAIN then
-        Base.getInstance():Dispatch(0, sid, cmd, msg)
+        self:Dispatch(0, sid, cmd, msg)
         return
     end
 
@@ -223,7 +223,7 @@ function Base:RetMessage(dest, msg, sid)
     sid = sid or 0
 
     if CONF.BASE.MODE_LUA_MAIN then
-        Base.getInstance():Dispatch(0, sid, CMD.LVM_CMD_MSG_RET, msg)
+        self:Dispatch(0, sid, CMD.LVM_CMD_MSG_RET, msg)
         return
     end
 
@@ -286,7 +286,7 @@ function Base:GetIPCReadCB()
 
       local status,msg,err = pcall(json.decode,msgret)
       if status and msg and msg.cmd and msg.sid and msg.msg then
-          Base.getInstance():Dispatch(0, msg.sid, msg.cmd, msg.msg)
+          self:Dispatch(0, msg.sid, msg.cmd, msg.msg)
       end
     end
 end

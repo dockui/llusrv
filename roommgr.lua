@@ -74,7 +74,7 @@ function RoomMgr:JoinRoomEx(roomid, data)
         return ECODE.ERR_NOT_EXIST
     end
 
-    BASE:PostMessage(roominfo.lvm_roomid, CMD.REQ_ENTERTABLE, json.encode(data)) 
+    BASE:GetLvm(roominfo.lvm_roomid).BASE:PostMessage(roominfo.lvm_roomid, CMD.REQ_ENTERTABLE, json.encode(data)) 
 end
 
 function RoomMgr:ExitUser(roomid, data)
@@ -84,7 +84,7 @@ function RoomMgr:ExitUser(roomid, data)
         return ECODE.ERR_NOT_EXIST
     end
 
-    BASE:PostMessage(roominfo.lvm_roomid, CMD.REQ_EXIT, json.encode(data)) 
+    BASE:GetLvm(roominfo.lvm_roomid).BASE:PostMessage(roominfo.lvm_roomid, CMD.REQ_EXIT, json.encode(data)) 
 end
 
 function RoomMgr:UpdateUserInfo(roomid, data)
@@ -94,7 +94,7 @@ function RoomMgr:UpdateUserInfo(roomid, data)
         return ECODE.ERR_NOT_EXIST
     end
 
-    BASE:PostMessage(roominfo.lvm_roomid, CMD.LVM_CMD_UPDATE_USER_INFO, json.encode(data)) 
+    BASE:GetLvm(roominfo.lvm_roomid).BASE:PostMessage(roominfo.lvm_roomid, CMD.LVM_CMD_UPDATE_USER_INFO, json.encode(data)) 
 end
 
 function RoomMgr:IsExistRoom(roomid)
@@ -132,7 +132,7 @@ function RoomMgr:CreateRoom(data)
     --     data.user[i] = tonumber(data[mem])
     -- end
 
-    self._list_room[data.roomid] = data
+    self._list_room[tonumber(data.roomid)] = data
 
     self:BuildUserToRoom(data)
 
@@ -140,7 +140,7 @@ function RoomMgr:CreateRoom(data)
 end
 
 function RoomMgr:UpdateRoom(data)
-    local data_ori = self._list_room[data.roomid]
+    local data_ori = self._list_room[tonumber(data.roomid)]
     
     if not data_ori then
         return
@@ -157,7 +157,7 @@ function RoomMgr:UpdateRoom(data)
     --     data.user[i] = tonumber(data[mem])
     -- end
 
-    self._list_room[data.roomid] = data
+    self._list_room[tonumber(data.roomid)] = data
 
     self:BuildUserToRoom(data)
     return data.roomid
@@ -167,7 +167,7 @@ function RoomMgr:RemoveUserToRoom(data)
     for i=1, data.num do
         local mem = "member_"..i
         if data[mem] then
-            self._map_user_to_room[tonumber(data[mem]] = nil
+            self._map_user_to_room[tonumber(data[mem])] = nil
         end
     end
 end
@@ -176,7 +176,7 @@ function RoomMgr:BuildUserToRoom(data)
     for i=1, data.num do
         local mem = "member_"..i
         if data[mem] then
-            self._map_user_to_room[tonumber(data[mem]] = data
+            self._map_user_to_room[tonumber(data[mem])] = data
         end
     end
 end

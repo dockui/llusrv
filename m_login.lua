@@ -78,21 +78,21 @@ function Login:OnLogin(msg, fid, sid)
        ret = res.body
     else
         log.error("request login api failure:"..res.err)
-        ret = {
+        ret = json.encode({
             cmd = CMD.RES_LOGIN,
             error = ECODE.CODE_UNKNOW,
             data = ECODE.ErrDesc(ECODE.CODE_UNKNOW)
-        }
+        })
     end
 
-    log.debug("request login api:".. ret)
+    log.info("request login api:".. ret)
     
     if CONF.BASE.MODE_LUA_MAIN then
         self.BASE:RetMessageIPC(CONF.LVM_MODULE.LOGIN, 
-            json.encode(ret), sid)
+            (ret), sid)
         return
     end
-    self.BASE:RetMessage(fid, json.encode(ret), sid)
+    self.BASE:RetMessage(fid, (ret), sid)
 end
 
 function Login:OnExit(msg, fid, sid)
@@ -114,21 +114,21 @@ function Login:OnExit(msg, fid, sid)
        ret = res.body
     else
         log.error("request exit_room api failure:"..res.err)
-        ret = {
+        ret = json.encode({
             cmd = 0,
             error = ECODE.CODE_UNKNOW,
             data = ECODE.ErrDesc(ECODE.CODE_UNKNOW)
-        }
+        })
     end
 
-    log.debug("request exit_room api:".. ret)
+    log.info("request exit_room api:".. ret)
     
     if CONF.BASE.MODE_LUA_MAIN then
         self.BASE:RetMessageIPC(CONF.LVM_MODULE.LOGIN, 
-            json.encode(ret), sid)
+            (ret), sid)
         return
     end
-    self.BASE:RetMessage(fid, json.encode(ret), sid)
+    self.BASE:RetMessage(fid, (ret), sid)
 end
 
 -- objLogin = Login:new()

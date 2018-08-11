@@ -64,7 +64,9 @@ _M._output_fail = function(response, cmd, data)
     }
     if cmd then ret.cmd = cmd end
 
-	response:write(json.encode(ret))
+    local ostr = json.encode(ret)
+    log.info("http response => "..ostr)
+	response:write(ostr)
 end
 
 _M.config = function(response, params)
@@ -88,7 +90,10 @@ _M.login = function(response, params)
 		local sid = params.sid or "0"
 		local uid = cache:get(sid..":sid")
 		if not uid then
-			if params.cmd == CMD.REQ_LOGIN then break end
+			if params.cmd == CMD.REQ_LOGIN then 
+				log.error("login not find user")
+				break 
+			end
 
 			local name = nick.new()
 			uid = db.insert("T_USER", {
@@ -102,12 +107,25 @@ _M.login = function(response, params)
 			cache:hmset(key_uid, {uid=uid, sid=sid, gold=6, name=name})
 		end
 
-		msg = cache:hgetall(uid..":uid") or {}
-		if msg.sid ~= sid then break end
+		-- local key_uid = uid..":uid"
+		msg = _M._get_user_info(uid) or {}
+		if msg.sid ~= sid then 
+			log.error("login sid error ")
+			break 
+		end
 
-		if params.cmd == CMD.REQ_LOGIN then
-			msg.inroom_info = msg.inroomid and cache:hgetall(msg.inroomid..":roomid") 
-			-- msg.cmd = CMD.RES_LOGIN
+		--clear rooms info
+		if msg.inroomid then
+			local inroom_info = _M._get_room_info(msg.inroomid)
+			if table.empty(inroom_info) then
+				cache:hdel(key_uid, "inroomid")
+				msg.inroomid = nil
+			end
+
+			if params.cmd == CMD.REQ_LOGIN then
+				msg.inroom_info = inroom_info
+				-- msg.cmd = CMD.RES_LOGIN
+			end
 		end
 
 		_M._output(response, CMD.RES_LOGIN, msg)
@@ -133,27 +151,83 @@ _M._is_logined = function(sid)
 	return true
 end
 
-_M._get_user_info = function(sid)
+_M._get_room_info = function(roomid)
+	local room_info = cache:hgetall(roomid..":roomid")
+
+--  1) "uid"
+--  2) "41"
+--  3) "vid"
+--  4) "1001"
+--  5) "num"
+--  6) "4"
+--  7) "roomid"
+--  8) "626122"
+--  9) "member_1"
+-- 10) "41"
+
+	room_info.uid = room_info.uid and tonumber(room_info.uid)
+	room_info.roomid = room_info.roomid and tonumber(room_info.roomid)
+	room_info.vid = room_info.vid and tonumber(room_info.vid)
+	
+	room_info.num = room_info.num and tonumber(room_info.num) or 4
+
+	for i=1, room_info.num do
+		local mem = "member_"..i
+		if room_info[mem] then
+			room_info[mem] = room_info[mem] and tonumber(room_info[mem])
+		end
+	end
+
+	return room_info
+end
+
+_M._get_user_info_bysid = function(sid)
 	local sid = sid or "0"
 	local uid = cache:get(sid..":sid")
 
 	if not uid then
-		return nil
+		return {}
 	end
 
+	return _M._get_user_info(uid)
+end
+
+_M._get_user_info = function(uid)
+
+--  1) "sid"
+--  2) "25cb9e6933fa744017db030d2390fcb4"
+--  3) "name"
+--  4) "\xe6\xad\xa2\xe5\xae\xa0"
+--  5) "uid"
+--  6) "41"
+--  7) "gold"
+--  8) "12"
+--  9) "inroomid"
+-- 10) "626122"
+
 	local info = cache:hgetall(uid..":uid")
+	info.uid = info.uid and tonumber(info.uid)
+	info.gold = info.gold and tonumber(info.gold) or 0
+	info.inroomid = info.inroomid and tonumber(info.inroomid)
+
 	return info
 end
 
-_M._set_user_info = function(sid, info)
+_M._set_user_info = function(sid, info, reset)
 	local sid = sid or "0"
 	local uid = cache:get(sid..":sid")
 
 	if not uid then
 		return nil
 	end
+	
 
 	local key_uid = uid..":uid"
+	
+	if reset then
+		cache:del(key_uid)
+	end
+
 	cache:hmset(key_uid, info)
 end
 
@@ -177,8 +251,8 @@ _M.create_room = function(response, params)
 		return
 	end
 
-	local info = _M._get_user_info(params.sid)
-	info.gold = info.gold and tonumber(info.gold) or 0
+	local info = _M._get_user_info_bysid(params.sid)
+	-- info.gold = info.gold and tonumber(info.gold) or 0
 	
 	-- gold
 	local gold_need = 2
@@ -193,14 +267,16 @@ _M.create_room = function(response, params)
 	cache:hset(key_uid, "gold", info.gold)
 
 	-- create_room
+	local roomid = _M._AllocNewRoomId()
+	local key_room = roomid..":roomid"
+
 	local room_info = {
 		uid=info.uid, 
 		vid=params.vid, 
 		num=params.num, 
 		roomid=roomid
 	}
-	local roomid = _M._AllocNewRoomId()
-	local key_room = roomid..":roomid"
+
 	cache:hmset(key_room, room_info)
 	cache:expire(key_room, 24*3600) -- one day
 
@@ -222,8 +298,8 @@ _M.join_room = function(response, params)
 		return
 	end
 
-	local info = _M._get_user_info(params.sid)
-	info.inroomid = info.inroomid and tonumber(info.inroomid) or nil
+	local info = _M._get_user_info_bysid(params.sid)
+	-- info.inroomid = info.inroomid and tonumber(info.inroomid) or nil
 
 	if info.inroomid and info.inroomid ~= params.roomid then
 		_M._output_fail(response, ECODE.ERR_ALREADY_IN_ROOM)
@@ -232,11 +308,11 @@ _M.join_room = function(response, params)
 
 	local roomid = params.roomid or info.inroomid or "0"
 
-	local key_room = params.roomid..":roomid"
-	local room_info = cache:hgetall(key_room)
-	local num = room_info.num or 4
+	-- local key_room = params.roomid
+	local room_info = _M._get_room_info(roomid)
+	-- local num = room_info.num or 4
 
-	if not room_info.uid or not room_info.vid or not room_info.roomid then
+	if table.empty(room_info) then
 		--clear in room
 		if info.inroomid then
 			info.inroomid = nil
@@ -250,7 +326,7 @@ _M.join_room = function(response, params)
 
 	local isExist = false
 	local null_index = nil
-	for i=1, num do
+	for i=1, room_info.num do
 		local mem = "member_"..i
 		if not null_index and not room_info[mem] then
 			null_index = i
@@ -269,8 +345,9 @@ _M.join_room = function(response, params)
 		end
 
 		local mem = "member_"..null_index
-		-- room_info[mem] = info.uid
+		room_info[mem] = info.uid
 
+		local key_room = roomid..":roomid"
 		cache:hset(key_room, mem, info.uid)
 		cache:expire(key_room, 24*3600) -- one day
 	end
@@ -290,14 +367,13 @@ _M.exit_room = function(response, params)
 		return
 	end
 
-	local info = _M._get_user_info(params.sid)
+	local info = _M._get_user_info_bysid(params.sid)
 	local roomid = params.roomid or info.inroomid or "0"
 	
-	local key_room = roomid..":roomid"
-	local room_info = cache:hgetall(key_room)
+	local room_info = _M._get_room_info(roomid)
 	local num = room_info.num or 4
 
-	if not room_info.uid or not room_info.vid or not room_info.roomid then
+	if table.empty(room_info) then
 		--clear in room
 		if info.inroomid then
 			info.inroomid = nil
@@ -327,6 +403,7 @@ _M.exit_room = function(response, params)
 		local mem = "member_"..find_index
 		room_info[mem] = nil
 
+		local key_room = roomid..":roomid"
 		cache:hdel(key_room, mem)
 		cache:expire(key_room, 24*3600) -- one day
 	end

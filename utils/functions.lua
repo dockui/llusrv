@@ -412,6 +412,10 @@ function io.filesize(path)
     return size
 end
 
+function table.empty(t)
+    return _G.next( t ) == nil
+end
+
 function table.nums(t)
     local count = 0
     for k, v in pairs(t) do
