@@ -5,7 +5,7 @@ package.path = "/usr/local/Cellar/lua/5.3.4_3/share/lua/5.3/?.lua;"..package.pat
 local uv  = require"lluv"
 local ws  = require"lluv.websocket"
 local ut     = require "lluv.utils"
-local socket = require "lluv.luasocket"
+local socket = require "socket"
 
 local zmq   = require "lzmq"
 uv.poll_zmq = require "lluv.poll_zmq"
@@ -20,6 +20,8 @@ local log = require "log"
 local json = require "json"
 
 local ep = arg[1] or "ipc://llusrv"
+
+local host, port = (socket.dns.toip(socket.dns.gethostname())), 5556
 
 local UVLoop = class("UVLoop")
 function UVLoop:ctor(obj,data)
@@ -73,7 +75,7 @@ function UVLoop:Run()
     BASE:RegSendToClientCB(handler(self, self.SendToClient))
     BASE:RegCloseClientCB(handler(self, self.CloseClient))
 
-    uv.tcp():bind("127.0.0.1", 5556, handler(self, self.on_bind))
+    uv.tcp():bind(host, port, handler(self, self.on_bind))
     -- uv.pipe():bind([[\\.\pipe\sock.echo]], on_bind)
 
     uv.run()
@@ -152,13 +154,17 @@ function UVLoop:on_read(cli, err, data)
             break
         end
 
-        local size = string.unpack(">H", buffer:read_n(2))
+        local size = string.unpack("<H", buffer:read_n(2))
         if buffer:size() < size then
-            buffer:prepend(string.pack(">H",size))
+            buffer:prepend(string.pack("<H",size))
             break
         end
 
         local line = buffer:read_n(size)
+        -- for i=1,#line do
+        --     line[i] = line[i] ~ 16
+        -- end
+
         log.debug("read from client:"..line)
         
 

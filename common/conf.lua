@@ -4,7 +4,7 @@ local _M = {
 
 _M.BASE = {
     MODE_LUA_MAIN = true,
-    MODE_WS = true
+    MODE_WS = false
 }
 
 _M.LVM_MODULE = {

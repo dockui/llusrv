@@ -56,7 +56,7 @@ server:start(function (request, response)
 		return
 	until true
 
-	Action.output_fail(response, errcode)
+	Action._output_fail(response, errcode)
 
 	-- local params = request:params()
 	-- params = string.urldecode(params.params or "{}")

@@ -38,6 +38,7 @@ _M._output = function(response, cmd, data)
 	end
 
 	local ret = {
+			ret = 0,
             error = 0,
             data = data
     }
@@ -59,6 +60,8 @@ _M._output_fail = function(response, cmd, data)
 	end
 
 	local ret = {
+			ret = data,
+			desc = ECODE.ErrDesc(data),
             error = data,
             data = ECODE.ErrDesc(data)
     }
@@ -245,7 +248,7 @@ _M._AllocNewRoomId = function()
 end
 
 -- {"sid":"", "vid":1001, "num":4 }
-_M.create_room = function(response, params)
+_M.CreateRoom = function(response, params)
 	if not _M._is_logined(params.sid) then
 		_M._output_fail(response, ECODE.ERR_VERIFY_FAILURE)
 		return

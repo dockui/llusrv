@@ -7,13 +7,14 @@ package.path = "/usr/local/Cellar/lua/5.3.4_3/share/lua/5.3/?.lua;"..package.pat
 
 local uv = require "lluv"
 local ut = require "lluv.utils"
-local socket = require "lluv.luasocket"
+local socket = require "socket"
 
 local json = require "json"
 local CONF = require "conf"
 local CMD = require "cmd"
 
-local host, port = "127.0.0.1", 5556
+-- local host, port = "127.0.0.1", 5556
+local host, port = (socket.dns.toip(socket.dns.gethostname())), 5556
 
 local counter = 0
 local function on_write(cli, err)
@@ -107,9 +108,9 @@ local function read_data(cli, err, data)
   		break
   	end
 
-  	local size = string.unpack(">H", buffer:read_n(2))
+  	local size = string.unpack("<H", buffer:read_n(2))
   	if buffer:size() < size then
-  		buffer.prepend(string.pack(">H",size))
+  		buffer.prepend(string.pack("<H",size))
   		break
   	end
 
