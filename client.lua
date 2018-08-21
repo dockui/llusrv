@@ -5,6 +5,7 @@ package.cpath = "luaclib/?.so;"..package.cpath
 package.cpath = "/usr/local/lib/lua/5.3/?.so;"..package.cpath
 package.path = "/usr/local/Cellar/lua/5.3.4_3/share/lua/5.3/?.lua;"..package.path
 
+require "functions"
 local uv = require "lluv"
 local ut = require "lluv.utils"
 local socket = require "socket"
@@ -37,7 +38,7 @@ local function on_write(cli, err)
   if counter == 10 then
     -- wait all repspnses
     -- uv.timer():start(1000, function() cli:close() end)
-      local packstr = string.pack(">s2","quit")
+      local packstr = string.pack("<s4","quit")
   	  cli:write(packstr, on_write)
     return
   end
@@ -47,7 +48,7 @@ local function on_write(cli, err)
   	msg="line",
   	counter=counter
   	})
-  local packstr = string.pack(">s2",str)
+  local packstr = string.pack("<s4",str)
   cli:write(packstr, on_write)
 
   -- cli:write(string.sub(packstr, 1, 4), on_write)
@@ -55,7 +56,8 @@ local function on_write(cli, err)
 end
 
 function on_send(cli, str)
-    local packstr = string.pack(">s2",str)
+    local packstr = string.xor(str)
+    packstr = string.pack("<s4",packstr)
     cli:write(packstr)
     print("on send:"..str)
 end
@@ -66,7 +68,9 @@ function on_quit(cli)
   uv.timer():start(30000, function() 
     -- local packstr = string.pack(">s2","quit")
     -- cli:write(packstr)
-    on_send(cli, "quit")
+    str = "quit"
+    
+    on_send(cli, str)
     -- cli:close() 
   end)
 end
@@ -74,18 +78,20 @@ end
 function on_write2(cli)
     local str = json.encode({
           cmd=CMD.REQ_HEART,
-          data = {
+          -- data = {
             msg = "req heart"
-          }
+          -- }
         })
+    
     on_send(cli, str)
 
 local str = json.encode({
           cmd=CMD.REQ_LOGIN,
-          data = {
+          -- data = {
             username = "lisi"
-          }
+          -- }
         })
+
     on_send(cli, str)
 
 on_quit(cli)
@@ -104,17 +110,18 @@ local function read_data(cli, err, data)
 
   buffer:append(data)
   while true do
-  	if buffer:size() < 2 then
+  	if buffer:size() < 4 then
   		break
   	end
 
-  	local size = string.unpack("<H", buffer:read_n(2))
+  	local size = string.unpack("<I4", buffer:read_n(4))
   	if buffer:size() < size then
-  		buffer.prepend(string.pack("<H",size))
+  		buffer.prepend(string.pack("<I4",size))
   		break
   	end
 
     local line = buffer:read_n(size)
+    line = string.xor(line)
     print("read_data="..line)
   end
 end

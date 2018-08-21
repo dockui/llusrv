@@ -107,7 +107,8 @@ end
 function UVLoop:SendToClient(id, msg, len) 
     local conn = self:GetConn(id)
     if conn then
-        local packstr = string.pack(">s2",msg)
+        msg = string.xor(msg)
+        local packstr = string.pack("<s4",msg)
         conn:write(packstr)
     end
 end
@@ -150,21 +151,18 @@ function UVLoop:on_read(cli, err, data)
     buffer:append(data)
 
     while true do
-        if buffer:size() < 2 then
+        if buffer:size() < 4 then
             break
         end
 
-        local size = string.unpack("<H", buffer:read_n(2))
+        local size = string.unpack("<I4", buffer:read_n(4))
         if buffer:size() < size then
-            buffer:prepend(string.pack("<H",size))
+            buffer:prepend(string.pack("<I4",size))
             break
         end
 
         local line = buffer:read_n(size)
-        -- for i=1,#line do
-        --     line[i] = line[i] ~ 16
-        -- end
-
+        line = string.xor(line)
         log.debug("read from client:"..line)
         
 

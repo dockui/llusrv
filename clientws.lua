@@ -69,17 +69,18 @@ end
 function on_write2(cli)
     local str = json.encode({
           cmd=CMD.REQ_HEART,
-          data = {
+          -- data = {
             msg = "req heart"
-          }
+          -- }
         })
+    
     on_send(cli, str)
 
 local str = json.encode({
           cmd=CMD.REQ_LOGIN,
-          data = {
+          -- data = {
             username = "lisi"
-          }
+          -- }
         })
     on_send(cli, str)
 

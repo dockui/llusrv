@@ -57,8 +57,8 @@ function ConnMgr:OnHeart(msg)
     local backMsg = json.encode(
         {
             cmd = CMD.REQ_HEART,
-            error = ECODE.CODE_SUCCESS,
-            data = ECODE.ErrDesc(ECODE.CODE_SUCCESS)
+            code = ECODE.CODE_SUCCESS,
+            desc = ECODE.ErrDesc(ECODE.CODE_SUCCESS)
         }
     )
     BASE:SendToClient(msg.fid, backMsg, #backMsg)
@@ -80,7 +80,7 @@ function ConnMgr:OnLogin(msg)
         dump(l_msg, "l_msg")
         
         repeat
-            if l_msg.error ~= 0 then
+            if l_msg.code ~= 0 then
                 break
             end
 
@@ -94,29 +94,29 @@ function ConnMgr:OnLogin(msg)
     --  8) "1001"
     --  9) "member_1"
     -- 10) "41"
-            local inroom_info = l_msg.data.inroom_info or {}
+            local inroom_info = l_msg.inroom_info or {}
             -- local num = room_info.num or 4
 
-            if not l_msg.data.inroomid then
+            if not l_msg.inroomid then
                 log.error("connect to login failue: not in room")
 
-                l_msg.error = ECODE.ERR_NOT_IN_ROOM
-                l_msg.data = ECODE.ErrDesc(ECODE.ERR_NOT_IN_ROOM)
+                l_msg.code = ECODE.ERR_NOT_IN_ROOM
+                l_msg.desc = ECODE.ErrDesc(ECODE.ERR_NOT_IN_ROOM)
                 break
             end
 
             local find_index = nil
             for i=1, inroom_info.num do
                 local mem = "member_"..i
-                if inroom_info[mem] == l_msg.data.uid then
+                if inroom_info[mem] == l_msg.uid then
                     find_index = i
                     break
                 end
             end
             if not find_index then
                 log.error("connect to login failue: not join room")
-                l_msg.error = ECODE.ERR_NOT_IN_ROOM
-                l_msg.data = ECODE.ErrDesc(ECODE.ERR_NOT_IN_ROOM)
+                l_msg.code = ECODE.ERR_NOT_IN_ROOM
+                l_msg.desc = ECODE.ErrDesc(ECODE.ERR_NOT_IN_ROOM)
                 break
             end
 
@@ -128,10 +128,10 @@ function ConnMgr:OnLogin(msg)
                 self.roomMgr:UpdateRoom(inroom_info)
             end
 
-            l_msg.data.fid = msg.fid
-            self.roomMgr:JoinRoomEx(inroomid, l_msg.data)
+            l_msg.fid = msg.fid
+            self.roomMgr:JoinRoomEx(inroomid, l_msg)
             
-            self:SetLogin(msg.fid, tonumber(l_msg.data.uid))
+            self:SetLogin(msg.fid, tonumber(l_msg.uid))
 
         until true
 
@@ -194,11 +194,11 @@ function ConnMgr:OnExitRoom(msg)
         local l_msg = json.decode(msg_ret)
 
         repeat
-            if l_msg.error ~= 0 then
+            if l_msg.code ~= 0 then
                 break
             end
 
-            local inroom_info = l_msg.data
+            local inroom_info = l_msg
             -- local num = room_info.num or 4
 
             -- if not inroom_info.roomid then
@@ -325,8 +325,8 @@ function ConnMgr:OnMessage(strmsg, fid, sid)
                 local backMsg = json.encode(
                     {
                         cmd = 0,
-                        error = ECODE.ERR_VERIFY_FAILURE,
-                        data = ECODE.ErrDesc(ECODE.ERR_VERIFY_FAILURE)
+                        code = ECODE.ERR_VERIFY_FAILURE,
+                        desc = ECODE.ErrDesc(ECODE.ERR_VERIFY_FAILURE)
                     }
                 )
                 log.warn("Response:"..backMsg)

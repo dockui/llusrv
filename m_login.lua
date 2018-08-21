@@ -67,23 +67,43 @@ function Login:OnLogin(msg, fid, sid)
         action = "login",
         cmd = msg.cmd
     }
-    table.merge(params, msg.data)
+    table.merge(params, msg)
     params = json.encode(params)
     params = string.urlencode(params)
 
     local ret 
 
     res = hc:get('http://localhost:9090/api?params='..params)
-    if res.body then
-       ret = res.body
-    else
-        log.error("request login api failure:"..res.err)
-        ret = json.encode({
-            cmd = CMD.RES_LOGIN,
-            error = ECODE.CODE_UNKNOW,
-            data = ECODE.ErrDesc(ECODE.CODE_UNKNOW)
-        })
-    end
+    
+    repeat
+        if res.body then
+           ret = res.body
+
+           local status,msg = pcall(json.decode, res.body)
+           if not status then
+              ret = json.encode({
+                cmd = CMD.RES_LOGIN,
+                code = ECODE.CODE_UNKNOW,
+                desc = ECODE.ErrDesc(ECODE.CODE_UNKNOW)
+                })
+              break
+           end
+           if 0 ~= msg.code then
+              break
+           end
+
+           table.merge(msg, msg.data)
+           msg.data = nil
+           ret = json.encode(msg)
+        else
+            log.error("request login api failure:"..res.err)
+            ret = json.encode({
+                cmd = CMD.RES_LOGIN,
+                code = ECODE.CODE_UNKNOW,
+                desc = ECODE.ErrDesc(ECODE.CODE_UNKNOW)
+            })
+        end
+    until true
 
     log.info("request login api:".. ret)
     
@@ -103,23 +123,43 @@ function Login:OnExit(msg, fid, sid)
     local params = {
         action = "exit_room"
     }
-    table.merge(params, msg.data)
+    table.merge(params, msg)
     params = json.encode(params)
     params = string.urlencode(params)
 
     local ret 
 
     res = hc:get('http://localhost:9090/api?params='..params)
-    if res.body then
-       ret = res.body
-    else
-        log.error("request exit_room api failure:"..res.err)
-        ret = json.encode({
-            cmd = 0,
-            error = ECODE.CODE_UNKNOW,
-            data = ECODE.ErrDesc(ECODE.CODE_UNKNOW)
-        })
-    end
+
+    repeat
+        if res.body then
+           ret = res.body
+
+           local status,msg = pcall(json.decode, res.body)
+           if not status then
+              ret = json.encode({
+                cmd = CMD.RES_LOGIN,
+                code = ECODE.CODE_UNKNOW,
+                desc = ECODE.ErrDesc(ECODE.CODE_UNKNOW)
+                })
+              break
+           end
+           if 0 ~= msg.code then
+              break
+           end
+
+           table.merge(msg, msg.data)
+           msg.data = nil
+           ret = json.encode(msg)
+        else
+            log.error("request exit_room api failure:"..res.err)
+            ret = json.encode({
+                cmd = CMD.RES_LOGIN,
+                code = ECODE.CODE_UNKNOW,
+                desc = ECODE.ErrDesc(ECODE.CODE_UNKNOW)
+            })
+        end
+    until true
 
     log.info("request exit_room api:".. ret)
     

@@ -751,3 +751,12 @@ function string.encode.hex(str)
         return string.format('%02X', string.byte(c))
     end))
 end
+
+function string.xor(str, key)
+    key = key or 16
+    local lineC = ""
+    for i=1,#str do
+        lineC = lineC..string.char(string.byte(string.sub(str,i,i)) ~ key)
+    end
+    return lineC
+end

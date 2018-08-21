@@ -40,6 +40,7 @@ _M._output = function(response, cmd, data)
 	local ret = {
 			ret = 0,
             error = 0,
+            code = 0,
             data = data
     }
 
@@ -61,6 +62,7 @@ _M._output_fail = function(response, cmd, data)
 
 	local ret = {
 			ret = data,
+			code = data,
 			desc = ECODE.ErrDesc(data),
             error = data,
             data = ECODE.ErrDesc(data)
