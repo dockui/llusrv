@@ -73,7 +73,7 @@ function Login:OnLogin(msg, fid, sid)
 
     local ret 
 
-    res = hc:get('http://localhost:9090/api?params='..params)
+    res = hc:get(CONF.BASE.HTTP_ADDR..'?params='..params)
     
     repeat
         if res.body then
@@ -129,7 +129,7 @@ function Login:OnExit(msg, fid, sid)
 
     local ret 
 
-    res = hc:get('http://localhost:9090/api?params='..params)
+    res = hc:get(CONF.BASE.HTTP_ADDR..'?params='..params)
 
     repeat
         if res.body then

@@ -4,7 +4,8 @@ local _M = {
 
 _M.BASE = {
     MODE_LUA_MAIN = true,
-    MODE_WS = false
+    MODE_WS = false,
+    HTTP_ADDR = "http://localhost:8888/api"
 }
 
 _M.LVM_MODULE = {
