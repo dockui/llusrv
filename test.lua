@@ -16,20 +16,20 @@ local json = require "json"
 -- print(type(jdata), jdata)
 -- print(type(data["file"]), data["file"]);
 
-local t = {}
-t[1] = 1
-t[3] = 3
-for k,v in pairs(t) do
-print(k, v)
-end
-local jdata = json.encode(t)
-print(type(jdata), jdata)
-local sdata = json.decode(jdata)
-print(type(sdata), sdata)
+-- local t = {}
+-- t[1] = 1
+-- t[3] = 3
+-- for k,v in pairs(t) do
+-- print(k, v)
+-- end
+-- local jdata = json.encode(t)
+-- print(type(jdata), jdata)
+-- local sdata = json.decode(jdata)
+-- print(type(sdata), sdata)
 
-for k,v in pairs(sdata) do
-print(k, v)
-end
+-- for k,v in pairs(sdata) do
+-- print(k, v)
+-- end
 
 -- local cache = require "cache"
 -- cache.init()
@@ -55,15 +55,15 @@ end
 -- local mr = ossl.md5("ewq")
 -- print(mr)
 
--- hc = require('httpclient').new()
--- hc:set_default("timeout", 5)
+hc = require('httpclient').new()
+hc:set_default("timeout", 5)
 -- res = hc:get('http://localhost:9090/api?params={%22action%22:%22login%22,%22sid%22:%22798c1d9e2793f9a7522723b921b01186%22}')
-
--- if res.body then
---   print(res.body)
--- else
---   print(res.err)
--- end
+res = hc:get('http://localhost:8888/api')
+if res.body then
+  print(res.body)
+else
+  print(res.err)
+end
 
 -- local db = require "db"
 -- db.init()

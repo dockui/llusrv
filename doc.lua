@@ -36,4 +36,18 @@ CMD.REQ_EXIT
 	}
 }
 
+login
+quick login
+http://localhost:8888/api?params={"action":"login","sid":""} 
+login
+http://localhost:8888/api?params={"action":"login","sid":"75d2a09eb3412eb3c64d4735cb3cc017"}
+CreateRoom
+http://localhost:8888/api?params={"action":"CreateRoom","sid":"75d2a09eb3412eb3c64d4735cb3cc017","vid":1001, "num":4}
+join_room
+http://localhost:8888/api?params={"action":"join_room","sid":"75d2a09eb3412eb3c64d4735cb3cc017", "roomid":626122}
+exit_room
+http://localhost:8888/api?params={"action":"exit_room","sid":"75d2a09eb3412eb3c64d4735cb3cc017", "roomid":626122}
+remove_room
+http://localhost:8888/api?params={"action":"remove_room","sid":"75d2a09eb3412eb3c64d4735cb3cc017", "roomid":626122}
+
 
