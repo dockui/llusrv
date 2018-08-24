@@ -1,6 +1,9 @@
 package.path = "?.lua;utils/?.lua;common/?.lua;game/?.lua;"..package.path
 package.cpath = "luaclib/?.so;"..package.cpath
 
+--package.cpath = "/usr/local/lib/lua/5.3/?.so;"..package.cpath
+--package.path = "/usr/local/Cellar/lua/5.3.4_4/share/lua/5.3/?.lua;"..package.path
+
 local log = require "log"
 local json = require "json"
 local ECODE = require "errorcode"

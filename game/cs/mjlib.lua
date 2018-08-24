@@ -72,6 +72,13 @@ M.COLOR_TIAO = 3
 M.COLOR_ZI = 4
 M.COLOR_HUA = 5
 
+M.ACTION_HU = 8
+M.ACTION_GANG = 7
+M.ACTION_PENG = 5
+M.ACTION_CHI = 4
+M.ACTION_GUO = 1
+
+
 local COLORS = {"万","筒","条"}
 
 function M.get_color(card)

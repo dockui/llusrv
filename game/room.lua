@@ -42,7 +42,7 @@ end
 
 function Room:GetUser(uid)
     return self._lst_user[uid]
-    -- for i, v in ipairs(self._lst_user) do
+    -- for i, v in pairs(self._lst_user) do
     --     if v.uid == uid then
     --         return v
     --     end
@@ -51,7 +51,7 @@ function Room:GetUser(uid)
 end
 
 function Room:GetUserBySeatid(id)
-    for i, v in ipairs(self._lst_user) do
+    for i, v in pairs(self._lst_user) do
         if v.seatid == id then
             return v
         end
@@ -255,7 +255,7 @@ end
 
 function Room:ClearActions( ... )
     -- body
-    for i, v in ipairs(self._lst_user) do
+    for i, v in pairs(self._lst_user) do
         v.actions = nil
     end
 end
@@ -339,11 +339,85 @@ function Room:OnReqAction(msg)
         end
     end
 
-    self:HandleCPGH()
+    self:TryHandleCPGH()
 end
 
-function Room:HandleCPGH()
+function Room:TryHandleCPGH()
+
+    -- -- hu 8
+    -- local ret,seatid,op_type = self:GetFirstCPGH(8)
+    -- if ret then
+    --     HandleCPGH(seatid, op_type)
+    --     return
+    -- end
+
+    -- -- gang 7
+    -- ret,seatid,op_type = self:GetFirstCPGH(7)
+    -- if ret then
+    --     HandleCPGH(seatid, op_type)
+    --     return
+    -- end
+
+    for i=8,1,-1 do
+        local ret,seatid,op_type = self:GetFirstCPGH(i)
+        if ret then
+            self:HandleCPGH(seatid, op_type)
+            return
+        end
+    end
+
+end
+
+function Room:HandleCPGH(seatid, op_type)
+    if mjlib.ACTION_HU == op_type then
+
+    end
+
+    if mjlib.ACTION_GANG == op_type then
+
+    end
+
+    if mjlib.ACTION_PENG == op_type then
+
+    end
     
+    if mjlib.ACTION_CHI == op_type then
+
+    end
+
+    if mjlib.ACTION_GUO == op_type then
+
+    end
+end
+
+function Room:GetFirstCPGH(op_type)
+    local beg_seatid = self._room_info.waitop_seatid
+    local next_seatid = (beg_seatid + 1) % self._room_info.num
+    for pos=1, self._room_info.num - 1 do
+
+        local user_info = self:GetUserBySeatid(next_seatid)
+
+        if #user_info.actions > 0 then
+            --todo
+            for i=1,#user_info.actions do
+                if op_type == mjlib.ACTION_GUO then
+                    if op_type == user_info.actions[i].type and not user_info.actions[i].ack then
+                        return false
+                    end
+                else
+                    if op_type == user_info.actions[i].type and user_info.actions[i].ack then
+                        return true,next_seatid,user_info.actions[i].type
+                    end    
+                end
+            end
+        end
+
+        next_seatid = (next_seatid + 1) % self._room_info.num
+    end
+    if op_type == mjlib.ACTION_GUO then
+        return true
+    end
+    return false
 end
 
 function Room:JudgeCPGH(card_idx, from_seatid)
@@ -428,11 +502,14 @@ function Room:JudgeCPGH(card_idx, from_seatid)
             --save tmp
             user_info.actions = actions
 
+            --save current from seatid
+            self._room_info.waitop_seatid = from_seatid
+
             local backMsg = json.encode(outCard)
             BASE:SendToClient(user_info.fid, backMsg, #backMsg)
         end
 
-        next_seatid = (from_seatid + 1) % self._room_info.num
+        next_seatid = (next_seatid + 1) % self._room_info.num
     end
 end
 

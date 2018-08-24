@@ -12,7 +12,7 @@ local env = assert(luasql.mysql())
 local _M = {
 	_DB = "DB_TEST",
 	_USER = "root",
-	_PWD = "root"
+	_PWD = "Dockui_123456"
 }
 _M.__index = _M
 
@@ -26,7 +26,7 @@ end
 
 _M.init = function(ip, port)
 	_M._conn = assert(env:connect(_M._DB, _M._USER, _M._PWD,
-		ip or "127.0.0.1", port or 8889))
+		ip or "127.0.0.1", port or 3306))
 	-- _M._conn = assert(env:connect("DB_TEST","root","root","127.0.0.1",8889))
 
 	_M._conn:execute"SET NAMES UTF8"
