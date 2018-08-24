@@ -41,12 +41,13 @@ function Room:init(data)
 end
 
 function Room:GetUser(uid)
-    for i, v in ipairs(self._lst_user) do
-        if v.uid == uid then
-            return v
-        end
-    end
-    return nil
+    return self._lst_user[uid]
+    -- for i, v in ipairs(self._lst_user) do
+    --     if v.uid == uid then
+    --         return v
+    --     end
+    -- end
+    -- return nil
 end
 
 function Room:GetUserBySeatid(id)
@@ -163,6 +164,8 @@ function Room:StartGame()
     log.info(json.encode(self._lst_user))
 
     self:SendMsgStartGame()
+
+    self:outDirection(self._room_info.banker_seatid)
 end
 
 function Room:SendMsgStartGame()
@@ -191,10 +194,249 @@ function Room:SendMsgStartGame()
         local backMsg = json.encode(msg)
         BASE:SendToClient(user_info.fid, backMsg, #backMsg)
 
-        log.info("send message to fid="..user_info.fid)
-        log.info(backMsg) 
+        -- log.info("send message to fid="..user_info.fid)
+        -- log.info(backMsg) 
     end
 end
+
+function Room:OnOutCard(msg)
+    log.info("Room:OnOutCard()")
+    dump(msg)
+    local msg = type(msg) == "string" and json.decode(msg) or msg
+    local card_idx = mjlib.CardIndex[msg.card]
+
+    if not card_idx then
+        log.error("invalid card")
+        return
+    end
+
+    local user_info = self:GetUser(msg.uid)
+
+    if self._room_info.myseatid ~= userinfo.seatid then
+        log.debug("not current user to out")
+        return
+    end
+
+    local find_pos = table.keyof(user_info.cards, card_idx)
+    if not find_pos then
+        log.error("not find card")
+        return
+    end
+
+    table.remove(user_info.cards, find_pos)
+    
+    self:SendMsgOutCard(msg.card, user_info.seatid)
+
+    -- for cpgh
+    self:JudgeCPGH(card_idx, user_info.seatid)
+
+end
+
+function Room:SendMsgOutCard(card, byseatid)
+    
+    local outCard = {
+        cmd = 29,
+        card = card,
+        seatid = byseatid
+    }
+
+    for i=1, self._room_info.num do
+        local user_info = self:GetUserBySeatid(i)
+
+        outCard.hands = mjlib.getHandDefineTable(user_info.cards, byseatid , i)
+      
+        local backMsg = json.encode(outCard)
+        BASE:SendToClient(user_info.fid, backMsg, #backMsg)
+
+        -- log.info("send message to fid="..user_info.fid)
+        -- log.info(backMsg)
+    end
+end
+
+function Room:ClearActions( ... )
+    -- body
+    for i, v in ipairs(self._lst_user) do
+        v.actions = nil
+    end
+end
+
+
+function Room:SendCard(byseatid, fore_seatid)
+    -- local next_seatid = (fore_seatid + 1) % self._room_info.num
+
+    if #self._desk_cards == 0 then
+        log.info("card over")
+
+        return
+    end
+
+    local card_idx = table.remove(self._desk_cards)
+
+    local user_info = self:GetUserBySeatid(byseatid)
+    table.insert(user_info.cards, card_idx)
+
+    self:SendMsgSendCard(mjlib.CardDefine[card_idx], byseatid)
+
+    self:outDirection(byseatid)
+end
+
+function Room:SendMsgSendCard(card, byseatid)
+    local sendcard = {
+        cmd = 4022,
+        decks_count = #self._desk_cards,
+        seatid = byseatid
+    }
+
+    for i=1, self._room_info.num do
+        local user_info = self:GetUserBySeatid(i)
+
+        sendcard.card = byseatid == i and card or -1
+
+        local backMsg = json.encode(sendcard)
+        BASE:SendToClient(user_info.fid, backMsg, #backMsg)
+    end
+end
+
+function Room:outDirection(seatid)
+    self._room_info.myseatid = seatid
+
+    local outdirection = {
+        cmd = 4019,
+        seatid = seatid
+    }
+
+    local backMsg = json.encode(outdirection)
+    
+    for i=1, self._room_info.num do
+        local user_info = self:GetUserBySeatid(i)
+
+        BASE:SendToClient(user_info.fid, backMsg, #backMsg)
+    end
+end
+
+function Room:OnReqAction(msg)
+    log.info("Room:OnReqAction()")
+    dump(msg)
+    local msg = type(msg) == "string" and json.decode(msg) or msg
+    -- local card_idx = mjlib.CardIndex[msg.card]
+
+    local req_type = msg.type
+    local user_info = self:GetUser(msg.uid)
+
+    if not user_info then
+        log.error("invalid user")
+        return
+    end
+
+    if not user_info.actions then
+        log.error("not exist actions")
+        return
+    end
+
+    for k,v in pairs(user_info.actions) do
+        if v.type == req_type then
+            v.ack = true
+        end
+    end
+
+    self:HandleCPGH()
+end
+
+function Room:HandleCPGH()
+    
+end
+
+function Room:JudgeCPGH(card_idx, from_seatid)
+    -- body
+    self:ClearActions()
+
+    local next_seatid = (from_seatid + 1) % self._room_info.num
+    for pos=1, self._room_info.num - 1 do
+        local user_info = self:GetUserBySeatid(next_seatid)
+
+        local num_tbl = mjlib.getNumTable(user_info.cards)
+        -- num_tbl[card_idx] = num_tbl[card_idx] + 1
+
+        local actions = {}
+
+        --hu
+        num_tbl[card_idx] = num_tbl[card_idx] + 1
+        local bHu = mjlib.check_hu(num_tbl)
+        if bHu then
+            table.insert(actions, {
+                type = 8
+                })
+        end
+        num_tbl[card_idx] = num_tbl[card_idx] - 1
+
+        --gang type 6, 7
+        local bGang = mjlib.can_diangang(num_tbl, card_idx)
+        if bGang then
+            table.insert(actions, {
+                type = 7
+                })
+        end
+
+        --peng
+        local bPeng = mjlib.can_peng(num_tbl, card_idx)
+        if bPeng then
+            table.insert(actions, {
+                type = 5
+                })
+        end
+
+        --chi
+        if 1 == pos then
+            local options = {}
+            local bchi = mjlib.can_left_chi(num_tbl, card_idx)
+            if bchi then
+                table.insert(options, {
+                        cards = {
+                            mjlib.CardDefine[card_idx + 1],
+                            mjlib.CardDefine[card_idx + 2],
+                        }})
+            end
+            bchi = mjlib.can_middle_chi(num_tbl, card_idx)
+            if bchi then
+                table.insert(options, {
+                        cards = {
+                            mjlib.CardDefine[card_idx - 1],
+                            mjlib.CardDefine[card_idx + 1],
+                        }})
+            end
+            bchi = mjlib.can_right_chi(num_tbl, card_idx)
+            if bchi then
+                table.insert(options, {
+                        cards = {
+                            mjlib.CardDefine[card_idx - 2],
+                            mjlib.CardDefine[card_idx - 1],
+                        }})
+            end
+
+            if #options > 0 then
+                table.insert(actions, {
+                    type = 4,
+                    options = options
+                    })
+            end
+        end
+
+        if #actions > 0 then
+            -- guo
+            table.insert(actions, {type = 1})
+            
+            --save tmp
+            user_info.actions = actions
+
+            local backMsg = json.encode(outCard)
+            BASE:SendToClient(user_info.fid, backMsg, #backMsg)
+        end
+
+        next_seatid = (from_seatid + 1) % self._room_info.num
+    end
+end
+
+
 
 -- objRoom = Room:new()
 return Room

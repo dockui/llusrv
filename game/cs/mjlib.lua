@@ -30,6 +30,42 @@ M.CardDefine = {
     31, 32, 33, 34, 35, 36, 37, -- 东、南、西、北、中、发、白
 }
 
+M.CardIndex = { [1] = 1,
+[2] = 2,
+[3] = 3,
+[4] = 4,
+[5] = 5,
+[6] = 6,
+[7] = 7,
+[8] = 8,
+[9] = 9,
+[11] = 10,
+[12] = 11,
+[13] = 12,
+[14] = 13,
+[15] = 14,
+[16] = 15,
+[17] = 16,
+[18] = 17,
+[19] = 18,
+[21] = 19,
+[22] = 20,
+[23] = 21,
+[24] = 22,
+[25] = 23,
+[26] = 24,
+[27] = 25,
+[28] = 26,
+[29] = 27,
+[31] = 28,
+[32] = 29,
+[33] = 30,
+[34] = 31,
+[35] = 32,
+[36] = 33,
+[37] = 34,
+}
+
 M.COLOR_WAN = 1
 M.COLOR_TONG = 2
 M.COLOR_TIAO = 3
@@ -165,10 +201,6 @@ function M.shuffle(t)
         t[i] = t[index]
         t[index] = tmp
     end
-end
-
-function M.check_hu()
-
 end
 
 -- 检查平胡
@@ -382,21 +414,21 @@ function M.check_quanqiuren()
 end
 
 -- 检查碰
-function M.check_peng(cards, card)
-    return cards[card] >= 2
-end
+-- function M.check_peng(cards, card)
+--     return cards[card] >= 2
+-- end
 
-function M.check_angang(cards, card)
-    return cards[card] == 4
-end
+-- function M.check_angang(cards, card)
+--     return cards[card] == 4
+-- end
 
-function M.check_diangang(cards, card)
-    return cards[card] == 3
-end
+-- function M.check_diangang(cards, card)
+--     return cards[card] == 3
+-- end
 
-function M.check_jiagang(waves, card)
+-- function M.check_jiagang(waves, card)
 
-end
+-- end
 
 function M.can_peng(hand_cards, card)
     return hand_cards[card] >= 2
@@ -444,6 +476,10 @@ end
 
 function M.can_right_chi(hand_cards, card)
     return M.can_chi(hand_cards, card - 2, card - 1)
+end
+
+function M.check_hu(cards)
+    return M._check_normal(cards)
 end
 
 return M

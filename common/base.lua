@@ -173,7 +173,7 @@ function Base:RegSendToClientCB(cb)
 end
 
 function Base:SendToClient(wid, msg, len)   
-    log.debug("SendToClient beg:"..wid..", msg:"..msg..";len:"..len)
+    log.debug("SendToClient wid:"..wid..", msg:"..msg..";len:"..len)
 
     if CONF.BASE.MODE_LUA_MAIN then
         if self.cb_send then

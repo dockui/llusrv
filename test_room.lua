@@ -49,3 +49,9 @@ fid = 14,
 objRoom:TestSetUser(lst_user)
 objRoom:StartGame()
 
+-- objRoom:OnOutCard({card=6, uid=1})
+
+-- objRoom:SendMsgSendCard(23, 1)
+objRoom:outDirection(2)
+
+
