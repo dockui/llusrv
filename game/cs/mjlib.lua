@@ -1,6 +1,6 @@
 package.path = "../?.lua;"..package.path
 
-local utils = require "utils"
+-- local utils = require "utils"
 
 local jiang = {
     [2] = true,
@@ -16,6 +16,25 @@ local jiang = {
 
 local M = {}
 
+M.CardType = {
+    [1] = {min = 1, max = 9, chi = true},
+    [2] = {min = 10, max = 18, chi = true},
+    [3] = {min = 19, max = 27, chi = true},
+    [4] = {min = 28, max = 34, chi = false},
+}
+
+M.CardDefine = {
+    1, 2, 3, 4, 5, 6, 7, 8, 9, -- 万
+    11, 12, 13, 14, 15, 16, 17, 18, 19, -- 筒
+    21, 22, 23, 24, 25, 26, 27, 28, 29, -- 条
+    31, 32, 33, 34, 35, 36, 37, -- 东、南、西、北、中、发、白
+}
+
+M.COLOR_WAN = 1
+M.COLOR_TONG = 2
+M.COLOR_TIAO = 3
+M.COLOR_ZI = 4
+M.COLOR_HUA = 5
 
 local COLORS = {"万","筒","条"}
 
@@ -56,6 +75,38 @@ function M.getNumTable(tbl, zi)
 
     for i=1,#tbl do
         t[tbl[i]] = t[tbl[i]] + 1
+    end
+    return t
+end
+
+function M.getDefineTable(tbl)
+    local t = {}
+    for i=1,#tbl do
+        t[i] = M.CardDefine[tbl[i]]
+    end
+    return t
+end
+
+function M.getHandDefineTable(tbl, curseatid, orseatid)
+    local t = {}
+
+    for i=1,#tbl do
+        if curseatid ~= orseatid then
+            t[i] = -1
+        else
+            t[i] = M.CardDefine[tbl[i]]
+        end
+    end
+
+    local len = #t
+    if len < 13 then
+        for i=1,13-len do
+            table.insert(t, 1, 0)
+        end
+    end
+    len = #t
+    if len < 14 then
+        table.insert(t, 0)
     end
     return t
 end
@@ -345,6 +396,54 @@ end
 
 function M.check_jiagang(waves, card)
 
+end
+
+function M.can_peng(hand_cards, card)
+    return hand_cards[card] >= 2
+end
+
+function M.can_angang(hand_cards, card)
+    return hand_cards[card] == 4
+end
+
+function M.can_diangang(hand_cards, card)
+    return hand_cards[card] == 3
+end
+
+function M.can_chi(hand_cards, card1, card2)
+    if not hand_cards[card1] or not hand_cards[card2] then
+        return false
+    end
+
+    if hand_cards[card1] == 0 or  hand_cards[card2] == 0 then
+        return false
+    end
+
+    local color1 = M.get_color(card1)
+    local color2 = M.get_color(card2)
+
+    if color1 ~= color2 then
+        return false
+    end
+
+    -- 本种花色不能吃
+    if not CardType[color1].chi then
+        return false
+    end
+
+    return true
+end
+
+function M.can_left_chi(hand_cards, card)
+    return M.can_chi(hand_cards, card + 1, card + 2)
+end
+
+function M.can_middle_chi(hand_cards, card)
+    return M.can_chi(hand_cards, card - 1, card + 1)
+end
+
+function M.can_right_chi(hand_cards, card)
+    return M.can_chi(hand_cards, card - 2, card - 1)
 end
 
 return M
