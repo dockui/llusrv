@@ -130,9 +130,8 @@ function M.getDefineTable(tbl)
     return t
 end
 
-function M.getHandDefineTable(tbl, curseatid, orseatid)
+function M.getHandDefineTable(tbl, curseatid, orseatid, total)
     local t = {}
-
     for i=1,#tbl do
         if curseatid ~= orseatid then
             t[i] = -1
@@ -141,9 +140,10 @@ function M.getHandDefineTable(tbl, curseatid, orseatid)
         end
     end
 
+    total = total or 13
     local len = #t
-    if len < 13 then
-        for i=1,13-len do
+    if len < total then
+        for i=1,total-len do
             table.insert(t, 1, 0)
         end
     end

@@ -487,6 +487,19 @@ function table.removebyvalue(array, value, removeall)
     return c
 end
 
+function table.removebyvalue_r(array, value, removeall)
+    local c, i, beg = 0, #array, 1
+    while i >= 1 do
+        if array[i] == value then
+            table.remove(array, i)
+            c = c + 1
+            if not removeall then break end
+        end
+        i = i - 1
+    end
+    return c
+end
+
 function table.map(t, fn)
     for k, v in pairs(t) do
         t[k] = fn(v, k)
