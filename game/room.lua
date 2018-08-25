@@ -30,13 +30,19 @@ function Room:init(data)
     log.info("Room:init()")
     self._lst_user = {}
     self._desk_cards = {}
-    self._room_info = {    }
+    self._room_info = {}
 
     self.BASE:RegCmdCB(CMD.REQ_ENTERTABLE, handler(self, self.OnEnterTable))
-
+    
     self.BASE:RegCmdCB(CMD.LVM_CMD_UPDATE_USER_INFO, handler(self, self.OnUpdateUserInfo))
-
+    
     self.BASE:RegCmdCB(CMD.REQ_EXIT, handler(self, self.OnUserExit))
+
+    self.BASE:RegCmdCB(CMD.REQ_READY, handler(self, self.OnReady))
+
+    self.BASE:RegCmdCB(CMD.REQ_OUTCARD, handler(self, self.OnOutCard))
+
+    self.BASE:RegCmdCB(CMD.REQ_ACTION, handler(self, self.OnReqAction))
 
 end
 
@@ -108,10 +114,23 @@ function Room:BuildUserSeatid(data)
     self._lst_user = lst_user_tmp
 end
 
+function Room:OnReady(msg)
+    log.info("Room:OnReady()")
+    local msg = type(msg) == "string" and json.decode(msg) or msg
+    if CONF.BASE.DEBUG then dump(msg) end
+
+    local user_info = self:GetUser(msg.uid)
+    if not user_info then 
+        log.error("OnReady not found user =>")
+    end
+
+    user_info.ready = msg.ready
+end
+
 function Room:OnEnterTable(msg)
     log.info("Room:OnEnterTable() "..msg)
     local msg = json.decode(msg)
-    self._room_info = msg.inroom_info or {}
+    table.merge(self._room_info , msg.inroom_info or {})
 
     -- self._lst_user[msg.fid] = msg
     
@@ -135,7 +154,23 @@ function Room:OnEnterTable(msg)
 
     self:BuildUserSeatid(self._room_info)
 
-    self:StartGame()
+    if self:IsAllReady() then
+        -- nerver begin
+        if not self.player_round then
+            self:InitTableInfo()
+            self:StartGame()
+        end
+        
+    end
+end
+
+function Room:IsAllReady()
+    for i, v in pairs(self._lst_user) do
+        if not v.ready then
+            return false
+        end
+    end
+    return true
 end
 
 function Room:TestSetUser(lst_user)
@@ -152,6 +187,7 @@ function Room:StartGame()
     self._desk_cards = mjlib.create()
     mjlib.shuffle(self._desk_cards)
 
+    local lastcatch_card_idx = nil
     for i=1, self._room_info.num do
         local user_info = self:GetUserBySeatid(i)
         user_info.hands = {}
@@ -160,7 +196,8 @@ function Room:StartGame()
         end
 
         if self._room_info.banker_seatid == i then
-            table.insert(user_info.hands, table.remove(self._desk_cards))
+            lastcatch_card_idx = table.remove(self._desk_cards)
+            table.insert(user_info.hands, lastcatch_card_idx)
         end
 
         table.sort(user_info.hands)
@@ -176,6 +213,8 @@ function Room:StartGame()
     log.info(json.encode(self._lst_user))
 
     self:SendMsgStartGame()
+
+    self:JudgeSelfAction(self._room_info.banker_seatid, lastcatch_card_idx, true)
 
     self:outDirection(self._room_info.banker_seatid)
 end
@@ -211,48 +250,69 @@ function Room:SendMsgStartGame()
     end
 end
 
-function Room:TableInfo()
-    local msg_tableinfo = clone(self._room_info)
-    table.merge(msg_tableinfo, {
-        cmd = CMD.RES_TBALEINFO,
+function Room:InitTableInfo()
+    table.merge(self._room_info, {
         create_mode = 0,
         daikai_mode = 0, 
-        decks_count = #self._desk_cards,
-        gamestate = 1,
+
+        gamestate = 0,
         gametype = 1, -- n ren wan fa
-        -- owner_seatid = 1
-        -- piao = 0,
-        -- play_round = 1
-        players = {},
-        
-        putcard_card = -1, -- chu pai
-        putcard_seatid = 2, --chu seatid
+        owner_seatid = self:GetUser(self._room_info.uid).seatid,
+        piao = 0,
+        play_round = 1,
 
         roomtype =  self._room_info.num, -- m_typeGm
 
-        -- sendcard_card = , zi ji chu pai
         tid = self._room_info.roomid,
 
-        -- total_round = 8, 
+        total_round = 8, 
         zhaniao_count = 1,
-        
+
+        tid = self._room_info.roomid,
     })
+end
+
+function Room:SendTableInfo(uid_for)
+
+    local user_info_for = self:GetUser(uid_for)
+
+
+    local msg_tableinfo = clone(self._room_info)
+    table.merge(msg_tableinfo, {
+        cmd = CMD.RES_TBALEINFO,
+        
+        decks_count = #self._desk_cards,
+        -- putcard_card = -1, -- chu pai
+        -- putcard_seatid = 2, --chu seatid
+
+        -- sendcard_card = , zi ji chu pai
+        
+        myseatid = user_info_for.seatid,
+
+        players = {},
+    })
+
 
     for i=1, self._room_info.num do
         local player_cards = {}
         local user_info = self:GetUserBySeatid(i)
-        -- user_info = clone(user_info)
+        user_info = clone(user_info)
+        user_info.hands = mjlib.getHandDefineTable(user_info.hands, user_info_for.seatid , j)
 
         table.insert(msg_tableinfo.players, user_info)
     end
 
 
+    local backMsg = json.encode(msg_tableinfo)
+    BASE:SendToClient(user_info_for.fid, backMsg, #backMsg)
+
 end
 
 function Room:OnOutCard(msg)
     log.info("Room:OnOutCard()")
-    dump(msg)
     local msg = type(msg) == "string" and json.decode(msg) or msg
+    if CONF.BASE.DEBUG then dump(msg) end
+
     local card_idx = mjlib.CardIndex[msg.card]
 
     if not card_idx then
@@ -262,7 +322,7 @@ function Room:OnOutCard(msg)
 
     local user_info = self:GetUser(msg.uid)
 
-    if self._room_info.myseatid ~= userinfo.seatid then
+    if self._room_info.putcard_seatid ~= userinfo.seatid then
         log.debug("not current user to out")
         return
     end
@@ -274,7 +334,9 @@ function Room:OnOutCard(msg)
     end
 
     table.remove(user_info.hands, find_pos)
-    
+
+    self._room_info.sendcard_card = msg.card
+
     self:SendMsgOutCard(msg.card, user_info.seatid)
 
     -- for cpgh
@@ -311,13 +373,46 @@ function Room:ClearActions( ... )
     end
 end
 
+function Room:JudgeSelfAction(byseatid, card_idx, qishou)
+    self:ClearActions()
 
-function Room:SendCard(byseatid, fore_seatid)
+    local user_info = self:GetUserBySeatid(byseatid)
+
+    local num_tbl = mjlib.getNumTable(user_info.hands)
+
+    local actions = {}
+
+    --hu
+
+    local bHu = mjlib.check_hu(num_tbl)
+    if bHu then
+        table.insert(actions, {
+            type = mjlib.ACTION_HU,
+            qishou = qishou,
+            })
+
+        -- guo
+        table.insert(actions, {type = mjlib.ACTION_GUO})
+        
+        --save tmp
+        user_info.actions = actions
+
+        --save current from seatid
+        self._room_info.putcard_seatid = byseatid
+        self._room_info.putcard_card = mjlib.CardDefine[card_idx]
+
+        local backMsg = json.encode(outCard)
+        BASE:SendToClient(user_info.fid, backMsg, #backMsg)
+
+    end
+end
+
+function Room:SendCard(byseatid)
     -- local next_seatid = (fore_seatid + 1) % self._room_info.num
 
     if #self._desk_cards == 0 then
         log.info("card over")
-
+        self:GameOver()
         return
     end
 
@@ -327,6 +422,8 @@ function Room:SendCard(byseatid, fore_seatid)
     table.insert(user_info.hands, card_idx)
 
     self:SendMsgSendCard(mjlib.CardDefine[card_idx], byseatid)
+
+    self:JudgeSelfAction(byseatid, card_idx)
 
     self:outDirection(byseatid)
 end
@@ -349,7 +446,7 @@ function Room:SendMsgSendCard(card, byseatid)
 end
 
 function Room:outDirection(seatid)
-    self._room_info.myseatid = seatid
+    self._room_info.putcard_seatid = seatid
 
     local outdirection = {
         cmd = 4019,
@@ -478,8 +575,8 @@ function Room:JudgeCPGH(card_idx, from_seatid)
             user_info.actions = actions
 
             --save current from seatid
-            self._room_info.waitop_seatid = from_seatid
-            self._room_info.waitop_cardidx = card_idx
+            self._room_info.putcard_seatid = from_seatid
+            self._room_info.putcard_card = mjlib.CardDefine[card_idx]
 
             local backMsg = json.encode(outCard)
             BASE:SendToClient(user_info.fid, backMsg, #backMsg)
@@ -516,7 +613,7 @@ function Room:TryHandleCPGH()
 end
 
 function Room:GetFirstCPGH(op_type)
-    local beg_seatid = self._room_info.waitop_seatid
+    local beg_seatid = self._room_info.putcard_seatid
     local next_seatid = (beg_seatid + 1) % self._room_info.num
     for pos=1, self._room_info.num - 1 do
 
@@ -547,14 +644,14 @@ end
 
 
 function Room:HandleCPGH(seatid, op_type)
-    local waitop_cardidx = self._room_info.waitop_cardidx
-    local waitop_seatid = self._room_info.waitop_seatid
-    local from_card = mjlib.CardDefine[waitop_cardidx]
+    local putcard_cardidx = mjlib.CardIndex[self._room_info.putcard_card]
+    local putcard_seatid = self._room_info.putcard_seatid
+    local from_card = self._room_info.putcard_card --mjlib.CardDefine[putcard_card]
 
     --guo and send cards
     if mjlib.ACTION_GUO == op_type then
         -- send card to next
-        local next_seatid = (waitop_seatid + 1) % self._room_info.num
+        local next_seatid = (putcard_seatid + 1) % self._room_info.num
 
         self:ClearActions()
         self:SendCard(next_seatid)
@@ -563,10 +660,10 @@ function Room:HandleCPGH(seatid, op_type)
 
 
    local user_info = self:GetUserBySeatid(seatid)
-   local user_info_from = self:GetUserBySeatid(waitop_seatid)
+   local user_info_from = self:GetUserBySeatid(putcard_seatid)
 
    -- del from outcard
-    table.removebyvalue_r(user_info_from.outcards, waitop_cardidx)
+    table.removebyvalue_r(user_info_from.outcards, putcard_cardidx)
 
     if mjlib.ACTION_HU == op_type then
 
@@ -582,9 +679,9 @@ function Room:HandleCPGH(seatid, op_type)
 
     if mjlib.ACTION_GANG == op_type then
         -- delete self hands
-        table.remove(user_info.hands, waitop_cardidx)
-        table.remove(user_info.hands, waitop_cardidx)
-        table.remove(user_info.hands, waitop_cardidx)
+        table.remove(user_info.hands, putcard_cardidx)
+        table.remove(user_info.hands, putcard_cardidx)
+        table.remove(user_info.hands, putcard_cardidx)
         to_eatcard_add.bu = 1
 
         -- add a card from tails
@@ -599,8 +696,8 @@ function Room:HandleCPGH(seatid, op_type)
     end
     
     if mjlib.ACTION_PENG == op_type then
-        table.remove(user_info.hands, waitop_cardidx)
-        table.remove(user_info.hands, waitop_cardidx)
+        table.remove(user_info.hands, putcard_cardidx)
+        table.remove(user_info.hands, putcard_cardidx)
     end
 
     if mjlib.ACTION_CHI == op_type then
@@ -632,10 +729,10 @@ function Room:HandleCPGH(seatid, op_type)
         local action_over = {
             cmd = CMD.RES_ACTIONOVER,
             from_card = from_card,
-            from_seatid = waitop_seatid,
+            from_seatid = putcard_seatid,
             to_seatid = seatid,
             to_eatcard_add = to_eatcard_add,
-            to_eatcard_del = to_eatcard_del 
+            to_eatcard_del = to_eatcard_del,
             to_hands = mjlib.getHandDefineTable(user_info.hands, seatid , i, 14),
         }
 
@@ -646,6 +743,7 @@ function Room:HandleCPGH(seatid, op_type)
     --direction to seatid
     self:outDirection(seatid)
 
+    self:ClearActions()
 end
 
 function Room:GetHuTypes(user_info)
@@ -655,15 +753,15 @@ end
 function Room:HuAction(huseatid )
 
     if huseatid then
-        local waitop_cardidx = self._room_info.waitop_cardidx
-        local waitop_seatid = self._room_info.waitop_seatid
-        local fromcard = mjlib.CardDefine[waitop_cardidx]
+        -- local putcard_cardidx = mjlib.CardIndex[self._room_info.putcard_card]
+        local putcard_seatid = self._room_info.putcard_seatid
+        -- local from_card = self._room_info.putcard_card --mjlib.CardDefine[putcard_card]
 
         local msg_hu = {
             cmd = CMD.RES_HU,
             fromcard = fromcard,
             huseatid = {huseatid},
-            iszimo = waitop_seatid == huseatid,
+            iszimo = putcard_seatid == huseatid,
             cards = {},
         }
 
@@ -672,7 +770,7 @@ function Room:HuAction(huseatid )
         
             local huinfo = {}
             huinfo.eats = user_info.eats
-            huinfo.hands = mjlib.getHandDefineTable(user_info.hands, i , i, huseatid == i and 14 or 13),
+            huinfo.hands = mjlib.getHandDefineTable(user_info.hands, i , i, huseatid == i and 14 or 13)
             huinfo.seatid = user_info.seatid
 
             if huseatid == i then
@@ -753,7 +851,7 @@ function Room:BigGameOver(huseatid )
 
         -- unkown dahuzimo xiaohuzimo jipao dianpao
         table.insert(bigbalanceinfo.paocount, {
-            count = 1
+            count = 1,
             paotype = 1
             })
 
