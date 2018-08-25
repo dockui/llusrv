@@ -183,7 +183,7 @@ end
 function Room:SendMsgStartGame()
     
     local msg = {
-        cmd = 4017,
+        cmd = CMD.RES_STARTGAME,
         banker_seatid = self._room_info.banker_seatid,
         decks_count = #self._desk_cards,
         player_round = self._room_info.player_round
@@ -209,6 +209,44 @@ function Room:SendMsgStartGame()
         -- log.info("send message to fid="..user_info.fid)
         -- log.info(backMsg) 
     end
+end
+
+function Room:TableInfo()
+    local msg_tableinfo = clone(self._room_info)
+    table.merge(msg_tableinfo, {
+        cmd = CMD.RES_TBALEINFO,
+        create_mode = 0,
+        daikai_mode = 0, 
+        decks_count = #self._desk_cards,
+        gamestate = 1,
+        gametype = 1, -- n ren wan fa
+        -- owner_seatid = 1
+        -- piao = 0,
+        -- play_round = 1
+        players = {},
+        
+        putcard_card = -1, -- chu pai
+        putcard_seatid = 2, --chu seatid
+
+        roomtype =  self._room_info.num, -- m_typeGm
+
+        -- sendcard_card = , zi ji chu pai
+        tid = self._room_info.roomid,
+
+        -- total_round = 8, 
+        zhaniao_count = 1,
+        
+    })
+
+    for i=1, self._room_info.num do
+        local player_cards = {}
+        local user_info = self:GetUserBySeatid(i)
+        -- user_info = clone(user_info)
+
+        table.insert(msg_tableinfo.players, user_info)
+    end
+
+
 end
 
 function Room:OnOutCard(msg)
@@ -610,27 +648,123 @@ function Room:HandleCPGH(seatid, op_type)
 
 end
 
-function Room:GameOver(seatid, op_type )
-    log.info("game over => "..op_type)
+function Room:GetHuTypes(user_info)
+    return {2, 10}
+end
 
-    local waitop_cardidx = self._room_info.waitop_cardidx
-    local waitop_seatid = self._room_info.waitop_seatid
-    local fromcard = mjlib.CardDefine[waitop_cardidx]
+function Room:HuAction(huseatid )
 
-    local msg_hu = {
-        cmd = CMD.RES_HU,
-        fromcard = fromcard,
-        huseatid = {seatid},
-        iszimo = waitop_seatid == seatid,
-    }
+    if huseatid then
+        local waitop_cardidx = self._room_info.waitop_cardidx
+        local waitop_seatid = self._room_info.waitop_seatid
+        local fromcard = mjlib.CardDefine[waitop_cardidx]
 
-    if mjlib.ACTION_HU == op_type then
+        local msg_hu = {
+            cmd = CMD.RES_HU,
+            fromcard = fromcard,
+            huseatid = {huseatid},
+            iszimo = waitop_seatid == huseatid,
+            cards = {},
+        }
+
+        for i=1, self._room_info.num do
+            local user_info = self:GetUserBySeatid(i)
         
+            local huinfo = {}
+            huinfo.eats = user_info.eats
+            huinfo.hands = mjlib.getHandDefineTable(user_info.hands, i , i, huseatid == i and 14 or 13),
+            huinfo.seatid = user_info.seatid
 
+            if huseatid == i then
+                huinfo.types = self:GetHuTypes(user_info)
+            end
+
+            table.insert(msg_hu.cards, huinfo)
+
+        end
+
+        for i=1, self._room_info.num do
+            local to_fid = self:GetUserfidBySeatid(i)
+            local backMsg = json.encode(msg_hu)
+        
+            BASE:SendToClient(to_fid, backMsg, #backMsg)
+        end
     end
 
+end
 
+function Room:GameOver(huseatid , fromcard)
+    log.info("game over => ")
 
+    self:HuAction(huseatid)
+
+    -- if huseatid then
+    --     return
+    -- end
+    local msg_gameover = {
+        cmd = CMD.RES_GAMEOVER,
+        banker_seatid = self._room_info.banker_seatid,
+        fromcard = {fromcard},  --unkown
+        fromseatid = huseatid,
+        scores = {}
+    }
+
+    for i=1, self._room_info.num do
+        local user_info = self:GetUserBySeatid(i)
+
+        local balanceinfo = {
+            incsore = 1,
+            score = 12,
+            seatid = i
+        }
+
+        if balanceinfo == i then
+            balanceinfo.types = {1} -- pinghu
+        end
+
+        table.insert(msg_gameover.scores, balanceinfo)
+    end 
+
+    for i=1, self._room_info.num do
+        local to_fid = self:GetUserfidBySeatid(i)
+        local backMsg = json.encode(msg_gameover)
+        BASE:SendToClient(to_fid, backMsg, #backMsg)
+    end
+end
+
+function Room:BigGameOver(huseatid )
+    log.info("BigGameOver => ")
+
+    local msg_biggameover = {
+        cmd = CMD.RES_BIGGAMEOVER,
+        scores = {}
+    }
+
+    for i=1, self._room_info.num do
+        local user_info = self:GetUserBySeatid(i)
+
+        local bigbalanceinfo = {
+            owner_seatid = self._room_info.banker_seatid, -- unkown
+            score = 12,
+            seatid = i
+        }
+
+        bigbalanceinfo.paocount = {}
+
+        -- unkown dahuzimo xiaohuzimo jipao dianpao
+        table.insert(bigbalanceinfo.paocount, {
+            count = 1
+            paotype = 1
+            })
+
+        table.insert(msg_gameover.scores, bigbalanceinfo)
+    end 
+
+    for i=1, self._room_info.num do
+        local to_fid = self:GetUserfidBySeatid(i)
+        local backMsg = json.encode(msg_biggameover)
+        BASE:SendToClient(to_fid, backMsg, #backMsg)
+    end
 end
 
 -- objRoom = Room:new()
