@@ -75,8 +75,10 @@ function Room:GetUserfidBySeatid(id)
 end
 
 function Room:OnUserExit(msg)
-    log.info("Room:OnUserExit() "..msg)
-    local msg = json.decode(msg)
+    log.info("Room:OnUserExit")
+    local msg = type(msg) == "string" and json.decode(msg) or msg
+    if CONF.BASE.DEBUG then dump(msg) end
+
     -- local userinfo = self:GetUser(msg.uid)
 
     -- table.merge(userinfo, msg)
@@ -125,6 +127,31 @@ function Room:OnReady(msg)
     end
 
     user_info.ready = msg.ready
+
+    if self:IsUserFull() and self:IsAllReady() then
+        -- nerver begin , so first init
+        if not self.player_round then
+            self:InitTableInfo()
+        end
+        
+        self:StartGame()
+    end 
+end
+
+function Room:IsUserFull()
+    if self._room_info.num > 0 and  self._room_info.num == table.nums(self._lst_user) then
+        return true
+    end
+    return false
+end
+
+function Room:IsAllReady()
+    for i, v in pairs(self._lst_user) do
+        if not v.ready then
+            return false
+        end
+    end
+    return true
 end
 
 function Room:OnEnterTable(msg)
@@ -154,24 +181,84 @@ function Room:OnEnterTable(msg)
 
     self:BuildUserSeatid(self._room_info)
 
-    if self:IsAllReady() then
-        -- nerver begin
-        if not self.player_round then
-            self:InitTableInfo()
-            self:StartGame()
-        end
-        
-    end
+    self:SendMsgEnterTable(msg.uid)
+
+    self:SendTableInfo(msg.uid)
 end
 
-function Room:IsAllReady()
-    for i, v in pairs(self._lst_user) do
-        if not v.ready then
-            return false
-        end
-    end
-    return true
+function Room:SendMsgEnterTable( byuid )
+    local msg_entertable = {
+        cmd = CMD.RES_ENTERTABLE,
+        player = {}
+    }
+    table.insert(msg_entertable.player , self:GetUser(byuid))
+
+    for i=1, self._room_info.num do
+        local to_fid = self:GetUserfidBySeatid(i)
+
+        local backMsg = json.encode(msg_entertable)
+        BASE:SendToClient(to_fid, backMsg, #backMsg)
+    end 
 end
+
+
+function Room:InitTableInfo()
+    table.merge(self._room_info, {
+        create_mode = 0,
+        daikai_mode = 0, 
+
+        gamestate = 0,
+        gametype = 1, -- n ren wan fa
+        owner_seatid = self:GetUser(self._room_info.uid).seatid,
+        piao = 0,
+        play_round = 1,
+
+        roomtype =  self._room_info.num, -- m_typeGm
+
+        tid = self._room_info.roomid,
+
+        total_round = 8, 
+        zhaniao_count = 1,
+
+        tid = self._room_info.roomid,
+    })
+end
+
+function Room:SendTableInfo(uid_for)
+
+    local user_info_for = self:GetUser(uid_for)
+
+
+    local msg_tableinfo = clone(self._room_info)
+    table.merge(msg_tableinfo, {
+        cmd = CMD.RES_TBALEINFO,
+        
+        decks_count = #self._desk_cards,
+        -- putcard_card = -1, -- chu pai
+        -- putcard_seatid = 2, --chu seatid
+
+        -- sendcard_card = , zi ji chu pai
+        
+        myseatid = user_info_for.seatid,
+
+        players = {},
+    })
+
+
+    for i=1, self._room_info.num do
+        local player_cards = {}
+        local user_info = self:GetUserBySeatid(i)
+        user_info = clone(user_info)
+        user_info.hands = mjlib.getHandDefineTable(user_info.hands, user_info_for.seatid , j)
+
+        table.insert(msg_tableinfo.players, user_info)
+    end
+
+
+    local backMsg = json.encode(msg_tableinfo)
+    BASE:SendToClient(user_info_for.fid, backMsg, #backMsg)
+end
+
 
 function Room:TestSetUser(lst_user)
     self._lst_user = lst_user
@@ -250,63 +337,6 @@ function Room:SendMsgStartGame()
     end
 end
 
-function Room:InitTableInfo()
-    table.merge(self._room_info, {
-        create_mode = 0,
-        daikai_mode = 0, 
-
-        gamestate = 0,
-        gametype = 1, -- n ren wan fa
-        owner_seatid = self:GetUser(self._room_info.uid).seatid,
-        piao = 0,
-        play_round = 1,
-
-        roomtype =  self._room_info.num, -- m_typeGm
-
-        tid = self._room_info.roomid,
-
-        total_round = 8, 
-        zhaniao_count = 1,
-
-        tid = self._room_info.roomid,
-    })
-end
-
-function Room:SendTableInfo(uid_for)
-
-    local user_info_for = self:GetUser(uid_for)
-
-
-    local msg_tableinfo = clone(self._room_info)
-    table.merge(msg_tableinfo, {
-        cmd = CMD.RES_TBALEINFO,
-        
-        decks_count = #self._desk_cards,
-        -- putcard_card = -1, -- chu pai
-        -- putcard_seatid = 2, --chu seatid
-
-        -- sendcard_card = , zi ji chu pai
-        
-        myseatid = user_info_for.seatid,
-
-        players = {},
-    })
-
-
-    for i=1, self._room_info.num do
-        local player_cards = {}
-        local user_info = self:GetUserBySeatid(i)
-        user_info = clone(user_info)
-        user_info.hands = mjlib.getHandDefineTable(user_info.hands, user_info_for.seatid , j)
-
-        table.insert(msg_tableinfo.players, user_info)
-    end
-
-
-    local backMsg = json.encode(msg_tableinfo)
-    BASE:SendToClient(user_info_for.fid, backMsg, #backMsg)
-
-end
 
 function Room:OnOutCard(msg)
     log.info("Room:OnOutCard()")
