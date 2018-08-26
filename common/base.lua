@@ -173,6 +173,11 @@ function Base:RegSendToClientCB(cb)
 end
 
 function Base:SendToClient(wid, msg, len)   
+    if not wid then
+        log.warn("SendToClient wid is null")
+        return
+    end
+
     log.debug("SendToClient wid:"..wid..", msg:"..msg..";len:"..len)
 
     if CONF.BASE.MODE_LUA_MAIN then

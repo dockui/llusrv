@@ -248,10 +248,12 @@ function Room:SendTableInfo(uid_for)
     for i=1, self._room_info.num do
         local player_cards = {}
         local user_info = self:GetUserBySeatid(i)
-        user_info = clone(user_info)
-        user_info.hands = mjlib.getHandDefineTable(user_info.hands, user_info_for.seatid , j)
+        if user_info then
+            user_info = clone(user_info)
+            user_info.hands = user_info.hands and mjlib.getHandDefineTable(user_info.hands, user_info_for.seatid , j) or {}
 
-        table.insert(msg_tableinfo.players, user_info)
+            table.insert(msg_tableinfo.players, user_info)
+        end
     end
 
 
