@@ -79,8 +79,12 @@ function Login:OnLogin(msg, fid, sid)
         if res.body then
            ret = res.body
 
+           log.info("request login body:".. (res.body and res.body or "null"))
+
            local status,msg = pcall(json.decode, res.body)
            if not status then
+              log.error("request login decode failure :"..(msg and msg or ""))
+
               ret = json.encode({
                 cmd = CMD.RES_LOGIN,
                 code = ECODE.CODE_UNKNOW,

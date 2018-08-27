@@ -27,6 +27,7 @@ function ConnMgr:init(data)
     BASE:RegCmdCB(CMD.LVM_CMD_CLIENT_MSG, handler(self, self.OnMessage))
 
     self.lst_reg_event = {
+        [1] = self.OnHeart1,
         [CMD.REQ_HEART] = self.OnHeart,
         [CMD.REQ_LOGIN] = self.OnLogin,
         [CMD.REQ_EXIT] = self.OnExitRoom
@@ -52,6 +53,19 @@ function ConnMgr:OnDisConnect(msg, fid, sid)
     log.info("ConnMgr:OnDisConnect:"..fid)
 
 end
+
+function ConnMgr:OnHeart1(msg)
+    log.info("ConnMgr:OnHeart:"..msg.fid)
+    local backMsg = json.encode(
+        {
+            cmd = 1,
+            code = ECODE.CODE_SUCCESS,
+            desc = ECODE.ErrDesc(ECODE.CODE_SUCCESS)
+        }
+    )
+    BASE:SendToClient(msg.fid, backMsg, #backMsg)
+end
+
 function ConnMgr:OnHeart(msg)
     log.info("ConnMgr:OnHeart:"..msg.fid)
     local backMsg = json.encode(
@@ -129,14 +143,14 @@ function ConnMgr:OnLogin(msg)
             end
 
             l_msg.fid = msg.fid
-            self.roomMgr:JoinRoomEx(inroomid, l_msg)
-            
+
             self:SetLogin(msg.fid, tonumber(l_msg.uid))
 
-        until true
+            local backMsg = json.encode(l_msg)
+            BASE:SendToClient(msg.fid, backMsg, #backMsg)
 
-        local backMsg = json.encode(l_msg)
-        BASE:SendToClient(msg.fid, backMsg, #backMsg)
+            self.roomMgr:JoinRoomEx(inroomid, l_msg)
+        until true
     end
 
     if CONF.BASE.MODE_LUA_MAIN then

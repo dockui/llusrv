@@ -129,11 +129,7 @@ function Room:OnReady(msg)
     user_info.ready = msg.ready
 
     if self:IsUserFull() and self:IsAllReady() then
-        -- nerver begin , so first init
-        if not self.player_round then
-            self:InitTableInfo()
-        end
-        
+         
         self:StartGame()
     end 
 end
@@ -177,9 +173,16 @@ function Room:OnEnterTable(msg)
         table.merge(userinfo, msg)
     else
         self._lst_user[msg.uid] = msg
+        msg.ready = false
     end
 
     self:BuildUserSeatid(self._room_info)
+
+    -- nerver begin , so first init
+    if not self._room_info.play_round then
+        self:InitTableInfo()
+    end   
+
 
     self:SendMsgEnterTable(msg.uid)
 
@@ -194,10 +197,12 @@ function Room:SendMsgEnterTable( byuid )
     table.insert(msg_entertable.player , self:GetUser(byuid))
 
     for i=1, self._room_info.num do
-        local to_fid = self:GetUserfidBySeatid(i)
+        local user_info = self:GetUserBySeatid(i)
 
-        local backMsg = json.encode(msg_entertable)
-        BASE:SendToClient(to_fid, backMsg, #backMsg)
+        if user_info and user_info.uid ~= byuid then
+            local backMsg = json.encode(msg_entertable)
+            BASE:SendToClient(user_info.fid, backMsg, #backMsg)
+        end
     end 
 end
 
@@ -210,6 +215,8 @@ function Room:InitTableInfo()
         gamestate = 0,
         gametype = 1, -- n ren wan fa
         owner_seatid = self:GetUser(self._room_info.uid).seatid,
+        banker_seatid = self:GetUser(self._room_info.uid).seatid,
+
         piao = 0,
         play_round = 1,
 
@@ -221,7 +228,9 @@ function Room:InitTableInfo()
         zhaniao_count = 1,
 
         tid = self._room_info.roomid,
+
     })
+
 end
 
 function Room:SendTableInfo(uid_for)
@@ -271,7 +280,7 @@ function Room:TestSetRoomInfo(room_info)
 end
 
 function Room:StartGame()
-    self._room_info.player_round = self._room_info.player_round and self._room_info.player_round + 1 or 1
+    self._room_info.play_round = self._room_info.play_round and self._room_info.play_round + 1 or 1
 
     self._desk_cards = mjlib.create()
     mjlib.shuffle(self._desk_cards)
@@ -314,7 +323,7 @@ function Room:SendMsgStartGame()
         cmd = CMD.RES_STARTGAME,
         banker_seatid = self._room_info.banker_seatid,
         decks_count = #self._desk_cards,
-        player_round = self._room_info.player_round
+        play_round = self._room_info.play_round
     }
 
     for i=1, self._room_info.num do
@@ -354,7 +363,7 @@ function Room:OnOutCard(msg)
 
     local user_info = self:GetUser(msg.uid)
 
-    if self._room_info.putcard_seatid ~= userinfo.seatid then
+    if self._room_info.putcard_seatid ~= user_info.seatid then
         log.debug("not current user to out")
         return
     end
