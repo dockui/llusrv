@@ -56,15 +56,16 @@ M.CardIndex = {
 [34] = 22,
 [35] = 23,
 [36] = 24,
-[38] = 25,
-[39] = 26,
-[41] = 27,
-[42] = 28,
-[43] = 29,
-[44] = 30,
-[45] = 31,
-[46] = 32,
-[47] = 33,
+[37] = 25,
+[38] = 26,
+[39] = 27,
+[41] = 28,
+[42] = 29,
+[43] = 30,
+[44] = 31,
+[45] = 32,
+[46] = 33,
+[47] = 34,
 }
 
 M.COLOR_WAN = 1
@@ -467,7 +468,7 @@ function M.can_chi(hand_cards, card1, card2)
     end
 
     -- 本种花色不能吃
-    if not CardType[color1].chi then
+    if not M.CardType[color1].chi then
         return false
     end
 
