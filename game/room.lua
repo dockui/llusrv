@@ -118,6 +118,12 @@ function Room:BuildUserSeatid(data)
     self._lst_user = lst_user_tmp
 end
 
+function Room:ResetGame()
+    for i, v in pairs(self._lst_user) do
+        v.ready = false
+    end
+end
+
 function Room:OnReady(msg)
     log.info("Room:OnReady()")
     local msg = type(msg) == "string" and json.decode(msg) or msg
@@ -226,7 +232,7 @@ function Room:InitTableInfo()
 
         tid = self._room_info.roomid,
 
-        total_round = 8, 
+        total_round = 2, 
         zhaniao_count = 1,
 
         tid = self._room_info.roomid,
@@ -377,8 +383,8 @@ function Room:OnOutCard(msg)
     end
 
     table.remove(user_info.hands, find_pos)
-
-    self._room_info.sendcard_card = msg.card
+    table.sort(user_info.hands)
+    -- self._room_info.sendcard_card = msg.card
 
     self:SendMsgOutCard(msg.card, user_info.seatid)
 
@@ -664,9 +670,9 @@ function Room:TryHandleCPGH()
     -- end
 
     for i=8,1,-1 do
-        local ret,seatid,op_type = self:GetFirstCPGH(i)
+        local ret,seatid = self:GetFirstCPGH(i)
         if ret then
-            self:HandleCPGH(seatid, op_type)
+            self:HandleCPGH(seatid, i)
             return
         end
     end
@@ -689,7 +695,7 @@ function Room:GetFirstCPGH(op_type)
                     end
                 else
                     if op_type == user_info.actions[i].type and user_info.actions[i].ack then
-                        return true,next_seatid,user_info.actions[i].type
+                        return true,next_seatid
                     end    
                 end
             end
@@ -895,6 +901,12 @@ function Room:GameOver(huseatid , fromcard)
         local to_fid = self:GetUserfidBySeatid(i)
         local backMsg = json.encode(msg_gameover)
         BASE:SendToClient(to_fid, backMsg, #backMsg)
+    end
+
+    self:ResetGame()
+
+    if self._room_info.play_round == self._room_info.total_round then
+        self:BigGameOver()
     end
 end
 

@@ -274,7 +274,8 @@ end
 function M._check_color(cards, min, max)
     local t = {}
     for i=min,max do
-        table.insert(t, cards[i])
+        --table.insert(t, cards[i])
+        t[i] = cards[i]
     end
     for i=min,max do
         local n

@@ -14,6 +14,8 @@ local json = require "json"
 
 local Room = require "room"
 
+local mjlib = require "cs.mjlib"
+
 log.configure(4)
 
 local objRoom = Room:new()
@@ -46,12 +48,22 @@ fid = 14,
 	name = "test4"
 } 
 
-objRoom:TestSetUser(lst_user)
-objRoom:StartGame()
+-- objRoom:TestSetUser(lst_user)
+-- objRoom:StartGame()
 
 -- objRoom:OnOutCard({card=6, uid=1})
 
 -- objRoom:SendMsgSendCard(23, 1)
-objRoom:outDirection(2)
+-- objRoom:outDirection(2)
+
+-- local hands = {16,16,16,17,21,23,25,26,26,28,28,29,17, 21}
+local hands = {16,16,16,17,17,17}
+for i=1,#hands do
+	hands[i] = mjlib.CardIndex[hands[i]]
+end
+local num_tbl = mjlib.getNumTable(hands)
+
+local bhu = mjlib.check_hu(num_tbl)
+print(bhu)
 
 
