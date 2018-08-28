@@ -536,6 +536,14 @@ function table.unique(t, bArray)
     return n
 end
 
+function table.reverse(t)  
+    local r = {}  
+    for i = 1, #t do 
+        r[i] = table.remove(t)  
+    end
+    return r  
+end  
+
 function table.serialize(obj)
     local lua = ""
     local t = type(obj)

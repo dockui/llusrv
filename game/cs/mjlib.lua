@@ -80,6 +80,12 @@ M.ACTION_PENG = 5
 M.ACTION_CHI = 4
 M.ACTION_GUO = 1
 
+M.EAT_BUGANG = 5
+M.EAT_ANGANG = 4
+M.EAT_GANG = 3
+M.EAT_PENG = 2
+M.EAT_CHI = 1
+
 
 local COLORS = {"万","筒","条"}
 
@@ -490,6 +496,32 @@ end
 
 function M.check_hu(cards)
     return M._check_normal(cards)
+end
+
+function M.check_gang(hands)
+    if not hands then return nil end
+
+    local lstgang = nil
+    for i=1,#hands do
+        if hands[i] == 4 then
+            if lstgang then lstgang = {} end
+            table.insert(lstgang, i)
+        end
+    end
+    return lstgang
+end
+
+function M.check_gang_eats(eats, card_idx)
+    if not eats then return nil end
+    
+    local lstgang = nil
+    for k,v in pairs(eats) do
+        if v.type == M.EAT_PENG and v.eat == M.CardDefine[card_idx] then
+            if lstgang then lstgang = {} end
+            table.insert(lstgang, card_idx)
+        end
+    end
+    return lstgang
 end
 
 return M

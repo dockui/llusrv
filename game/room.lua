@@ -122,6 +122,9 @@ function Room:ResetGame()
     for i, v in pairs(self._lst_user) do
         v.ready = false
     end
+
+    self._room_info.play_round = self._room_info.play_round and self._room_info.play_round + 1 or 1
+
 end
 
 function Room:OnReady(msg)
@@ -287,11 +290,43 @@ function Room:TestSetRoomInfo(room_info)
     self._room_info = room_info
 end
 
-function Room:StartGame()
-    self._room_info.play_round = self._room_info.play_round and self._room_info.play_round + 1 or 1
+function Room:CreateDeskCards()
+    local card_ori = mjlib.create()
+    mjlib.shuffle(card_ori)
+    local card_ap = card_ori
 
-    self._desk_cards = mjlib.create()
-    mjlib.shuffle(self._desk_cards)
+    -- zuo pai
+    card_ap = {}
+    local hands1 = {16,16,16, 17,17,17, 26,26,26, 28,28,28, 29, 29}
+    table.sort(hands1)
+    for i=1,#hands1 do
+        hands1[i] = mjlib.CardIndex[hands1[i]]
+        table.removebyvalue(card_ori, hands1[i])
+
+        table.insert(card_ap, hands1[i])
+    end
+    local hands2 = {31,31,31, 32,32,32, 33,33,33, 34,34,34, 35}
+    table.sort(hands2)
+    for i=1,#hands2 do
+        hands2[i] = mjlib.CardIndex[hands2[i]]
+        table.removebyvalue(card_ori, hands2[i])
+
+        table.insert(card_ap, hands2[i])
+    end
+
+    for i=1,#card_ori do
+        table.insert(card_ap, card_ori[i])
+    end
+
+    card_ap = table.reverse(card_ap)
+    --end
+
+    self._desk_cards = card_ap
+end
+
+function Room:StartGame()
+
+    self:CreateDeskCards()
 
     local lastcatch_card_idx = nil
     for i=1, self._room_info.num do
@@ -444,7 +479,44 @@ function Room:JudgeSelfAction(byseatid, card_idx, qishou)
             qishou = qishou,
             })
 
-        -- guo
+    else
+        local lstgang = mjlib.check_gang(num_tbl)
+        if lstgang then
+            local options = {}
+
+            for i=1, #lstgang do
+                table.insert(options, {
+                            cards = {
+                                mjlib.CardDefine[lstgang[i]]
+                            }})
+            end
+
+            table.insert(actions, {
+                type = mjlib.ACTION_GANG,
+                options = options
+            })
+        end
+
+        lstgang = mjlib.check_gang_eats(user_info.eats, card_idx)
+        if lstgang then
+            local options = {}
+
+            for i=1, #lstgang do
+                table.insert(options, {
+                            cards = {
+                                mjlib.CardDefine[lstgang[i]]
+                            }})
+            end
+
+            table.insert(actions, {
+                type = mjlib.ACTION_GANG,
+                options = options
+            })
+        end
+    end
+
+    if #actions > 0 then
+          -- guo
         table.insert(actions, {type = mjlib.ACTION_GUO})
         
         --save tmp
@@ -461,7 +533,6 @@ function Room:JudgeSelfAction(byseatid, card_idx, qishou)
 
         local backMsg = json.encode(msg_actions)
         BASE:SendToClient(user_info.fid, backMsg, #backMsg)
-
     end
 end
 
@@ -574,11 +645,18 @@ function Room:JudgeCPGH(card_idx, from_seatid)
         end
         num_tbl[card_idx] = num_tbl[card_idx] - 1
 
-        --gang type 6, 7
+        --gang type 6-bu, 7-gang
         local bGang = mjlib.can_diangang(num_tbl, card_idx)
         if bGang then
+            local options = {}
+            table.insert(options, {
+                        cards = {
+                            mjlib.CardDefine[card_idx]
+                        }})
+
             table.insert(actions, {
-                type = 7
+                type = 7,
+                options = options
                 })
         end
 
@@ -682,7 +760,7 @@ end
 function Room:GetFirstCPGH(op_type)
     local beg_seatid = self._room_info.putcard_seatid
     local next_seatid = (beg_seatid ) % self._room_info.num + 1
-    for pos=1, self._room_info.num - 1 do
+    for pos=1, self._room_info.num  do
 
         local user_info = self:GetUserBySeatid(next_seatid)
 
@@ -903,11 +981,11 @@ function Room:GameOver(huseatid , fromcard)
         BASE:SendToClient(to_fid, backMsg, #backMsg)
     end
 
-    self:ResetGame()
-
     if self._room_info.play_round == self._room_info.total_round then
         self:BigGameOver()
     end
+
+    self:ResetGame()
 end
 
 function Room:BigGameOver(huseatid )
@@ -935,7 +1013,7 @@ function Room:BigGameOver(huseatid )
             paotype = 1
             })
 
-        table.insert(msg_gameover.scores, bigbalanceinfo)
+        table.insert(msg_biggameover.scores, bigbalanceinfo)
     end 
 
     for i=1, self._room_info.num do
