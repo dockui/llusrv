@@ -544,6 +544,16 @@ function table.reverse(t)
     return r  
 end  
 
+function table.count_of(t, val)  
+    local c = 0
+    for k,v in pairs(t) do 
+        if v == val then
+            c = c + 1
+        end
+    end
+    return c
+end  
+
 function table.serialize(obj)
     local lua = ""
     local t = type(obj)

@@ -297,7 +297,7 @@ function Room:CreateDeskCards()
 
     -- zuo pai
     card_ap = {}
-    local hands1 = {16,16,16, 17,17,17, 26,26,26, 28,28,28, 29, 29}
+    local hands1 = {16,16,16, 17,17,17, 26,26,26, 28,28,28, 29, 28}
     table.sort(hands1)
     for i=1,#hands1 do
         hands1[i] = mjlib.CardIndex[hands1[i]]
@@ -408,6 +408,11 @@ function Room:OnOutCard(msg)
 
     if self._room_info.putcard_seatid ~= user_info.seatid then
         log.debug("not current user to out")
+        return
+    end
+
+    if user_info.actions then
+        log.debug("current user wait to actions")
         return
     end
 
@@ -759,6 +764,7 @@ end
 
 function Room:GetFirstCPGH(op_type)
     local beg_seatid = self._room_info.putcard_seatid
+    local seatid_guo = nil
     local next_seatid = (beg_seatid ) % self._room_info.num + 1
     for pos=1, self._room_info.num  do
 
@@ -768,8 +774,11 @@ function Room:GetFirstCPGH(op_type)
             --todo
             for i=1,#user_info.actions do
                 if op_type == mjlib.ACTION_GUO then
-                    if op_type == user_info.actions[i].type and not user_info.actions[i].ack then
-                        return false
+                    if op_type == user_info.actions[i].type then
+                        if not user_info.actions[i].ack then
+                            return false
+                        end
+                        seatid_guo = next_seatid
                     end
                 else
                     if op_type == user_info.actions[i].type and user_info.actions[i].ack then
@@ -782,7 +791,7 @@ function Room:GetFirstCPGH(op_type)
         next_seatid = (next_seatid ) % self._room_info.num + 1
     end
     if op_type == mjlib.ACTION_GUO then
-        return true
+        return true,seatid_guo
     end
     return false
 end
@@ -796,9 +805,12 @@ function Room:HandleCPGH(seatid, op_type)
     --guo and send cards
     if mjlib.ACTION_GUO == op_type then
         -- send card to next
-        local next_seatid = (putcard_seatid ) % self._room_info.num + 1
-
         self:ClearActions()
+        if seatid == putcard_seatid then
+            return
+        end
+
+        local next_seatid = (putcard_seatid ) % self._room_info.num + 1
         self:SendCard(next_seatid)
         return
     end
@@ -821,14 +833,83 @@ function Room:HandleCPGH(seatid, op_type)
         first = from_card,
         -- type = op_type
     }
+    local to_eatcard_del = {
+        eat = -1,
+        first = -1,
+        type = -1
+    }
 
     if mjlib.ACTION_GANG == op_type then
         -- delete self hands
-        table.removebyvalue(user_info.hands, putcard_cardidx)
-        table.removebyvalue(user_info.hands, putcard_cardidx)
-        table.removebyvalue(user_info.hands, putcard_cardidx)
-        to_eatcard_add.bu = 1
-        to_eatcard_add.type = 3
+        local findSelf = false
+        for i=1,#user_info.actions do    
+            if op_type == user_info.actions[i].type then
+                -- 17 18 chi 19 
+                local cards = user_info.actions[i].cards
+                local card_gang = putcard_cardidx
+                if cards and cards[1] then
+                    local card_req = mjlib.CardIndex[cards[1]]
+                    if card_req ~= putcard_cardidx then
+                        log.error("req action cards error")
+                    end
+                    card_gang = card_req
+                end
+
+                if user_info.eats then
+                    for k,v in pairs(user_info.eats) do
+                        if mjlib.EAT_PENG == v.type then
+                            local eat_idx = mjlib.CardIndex[v.eat]
+                            if eat_idx == card_gang then
+                                to_eatcard_del = v
+
+                                to_eatcard_add = {
+                                        eat = mjlib.CardDefine[card_gang],
+                                        first = mjlib.CardDefine[card_gang],
+                                        -- type = op_type
+                                        bu = 1,
+                                        type = mjlib.EAT_GANG
+                                }
+
+
+                                findSelf = true
+
+                                table.remove(user_info.eats, k)
+                            end
+                            break
+                        end
+                    end
+                end
+
+                if not findSelf and user_info.hands then
+                    local cnt = table.count_of(user_info.hands, card_gang)
+                    if 4 == cnt then
+
+                        table.removebyvalue(user_info.hands, card_gang)
+                        table.removebyvalue(user_info.hands, card_gang)
+                        table.removebyvalue(user_info.hands, card_gang)
+                        table.removebyvalue(user_info.hands, card_gang)
+
+                        to_eatcard_add = {
+                                        eat = mjlib.CardDefine[card_gang],
+                                        first = mjlib.CardDefine[card_gang],
+                                        -- type = op_type
+                                        bu = 1,
+                                        type = mjlib.EAT_GANG
+                        }
+
+                        findSelf = true
+                    end
+                end
+            end
+        end
+
+        if not findSelf then
+            table.removebyvalue(user_info.hands, putcard_cardidx)
+            table.removebyvalue(user_info.hands, putcard_cardidx)
+            table.removebyvalue(user_info.hands, putcard_cardidx)
+            to_eatcard_add.bu = 1
+            to_eatcard_add.type = mjlib.EAT_GANG
+        end
 
         -- add a card from tails
         if #self._desk_cards == 0 then
@@ -867,12 +948,6 @@ function Room:HandleCPGH(seatid, op_type)
     end
 
     table.insert(user_info.eats, to_eatcard_add)
-
-    local to_eatcard_del = {
-        eat = -1,
-        first = -1,
-        type = -1
-    }
 
     --send to client msg        
     for i=1, self._room_info.num do

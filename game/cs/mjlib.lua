@@ -481,16 +481,35 @@ function M.can_chi(hand_cards, card1, card2)
 
     return true
 end
+function M.is_same_color(card1, card2, card3)
+    local color1 = M.get_color(card1)
+    local color2 = M.get_color(card2)
+    local color3 = M.get_color(card2)
+
+    if color1 == color2 and color2 == color3 then
+        return true
+    end
+    return false
+end
 
 function M.can_left_chi(hand_cards, card)
+    if not M.is_same_color(card, card + 1, card + 2) then
+        return false
+    end
     return M.can_chi(hand_cards, card + 1, card + 2)
 end
 
 function M.can_middle_chi(hand_cards, card)
+    if not M.is_same_color(card, card - 1, card + 1) then
+        return false
+    end
     return M.can_chi(hand_cards, card - 1, card + 1)
 end
 
 function M.can_right_chi(hand_cards, card)
+    if not M.is_same_color(card, card - 2, card - 1) then
+        return false
+    end    
     return M.can_chi(hand_cards, card - 2, card - 1)
 end
 
@@ -504,7 +523,7 @@ function M.check_gang(hands)
     local lstgang = nil
     for i=1,#hands do
         if hands[i] == 4 then
-            if lstgang then lstgang = {} end
+            if not lstgang then lstgang = {} end
             table.insert(lstgang, i)
         end
     end
@@ -517,7 +536,7 @@ function M.check_gang_eats(eats, card_idx)
     local lstgang = nil
     for k,v in pairs(eats) do
         if v.type == M.EAT_PENG and v.eat == M.CardDefine[card_idx] then
-            if lstgang then lstgang = {} end
+            if not lstgang then lstgang = {} end
             table.insert(lstgang, card_idx)
         end
     end
