@@ -118,13 +118,16 @@ function Room:BuildUserSeatid(data)
     self._lst_user = lst_user_tmp
 end
 
-function Room:ResetGame()
+function Room:ResetGame(huseatid)
     for i, v in pairs(self._lst_user) do
         v.ready = false
     end
 
     self._room_info.play_round = self._room_info.play_round and self._room_info.play_round + 1 or 1
 
+    if huseatid then
+        self._room_info.banker_seatid = huseatid
+    end
 end
 
 function Room:OnReady(msg)
@@ -312,6 +315,15 @@ function Room:CreateDeskCards()
         table.removebyvalue(card_ori, hands2[i])
 
         table.insert(card_ap, hands2[i])
+    end
+
+    local rest = {16}
+
+    for i=1,#rest do
+        local tmp_idx = mjlib.CardIndex[rest[i]]
+        table.removebyvalue(card_ori, tmp_idx)
+
+        table.insert(card_ap, tmp_idx)
     end
 
     for i=1,#card_ori do
@@ -756,6 +768,11 @@ function Room:TryHandleCPGH()
         local ret,seatid = self:GetFirstCPGH(i)
         if ret then
             self:HandleCPGH(seatid, i)
+
+            --jixugang
+            if mjlib.ACTION_GANG == i then
+                self:JudgeSelfAction(seatid, card_idx)
+            end
             return
         end
     end
@@ -866,7 +883,7 @@ function Room:HandleCPGH(seatid, op_type)
                                         eat = mjlib.CardDefine[card_gang],
                                         first = mjlib.CardDefine[card_gang],
                                         -- type = op_type
-                                        bu = 1,
+                                        -- bu = 1,
                                         type = mjlib.EAT_GANG
                                 }
 
@@ -893,7 +910,7 @@ function Room:HandleCPGH(seatid, op_type)
                                         eat = mjlib.CardDefine[card_gang],
                                         first = mjlib.CardDefine[card_gang],
                                         -- type = op_type
-                                        bu = 1,
+                                        -- bu = 1,
                                         type = mjlib.EAT_GANG
                         }
 
@@ -907,7 +924,7 @@ function Room:HandleCPGH(seatid, op_type)
             table.removebyvalue(user_info.hands, putcard_cardidx)
             table.removebyvalue(user_info.hands, putcard_cardidx)
             table.removebyvalue(user_info.hands, putcard_cardidx)
-            to_eatcard_add.bu = 1
+            -- to_eatcard_add.bu = 1
             to_eatcard_add.type = mjlib.EAT_GANG
         end
 
@@ -974,7 +991,7 @@ function Room:HandleCPGH(seatid, op_type)
 end
 
 function Room:GetHuTypes(user_info)
-    return {2, 10}
+    return {2}
 end
 
 function Room:HuAction(huseatid , fromcard)
@@ -1043,7 +1060,7 @@ function Room:GameOver(huseatid , fromcard)
             seatid = i
         }
 
-        if balanceinfo == i then
+        if huseatid == i then
             balanceinfo.types = {1} -- pinghu
         end
 
@@ -1060,7 +1077,7 @@ function Room:GameOver(huseatid , fromcard)
         self:BigGameOver()
     end
 
-    self:ResetGame()
+    self:ResetGame(huseatid)
 end
 
 function Room:BigGameOver(huseatid )
