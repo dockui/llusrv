@@ -44,6 +44,8 @@ function Room:init(data)
 
     self.BASE:RegCmdCB(CMD.REQ_ACTION, handler(self, self.OnReqAction))
 
+    self.BASE:RegCmdCB(CMD.REQ_DISSOLUTIONROOM, handler(self, self.OnReqDissolution))
+   
 end
 
 function Room:GetUser(uid)
@@ -457,10 +459,12 @@ function Room:SendMsgOutCard(card, byseatid)
         seatid = byseatid
     }
 
+    local by_user_info = self:GetUserBySeatid(byseatid)
+
     for i=1, self._room_info.num do
         local user_info = self:GetUserBySeatid(i)
 
-        outCard.hands = mjlib.getHandDefineTable(user_info.hands, byseatid , i)
+        outCard.hands = mjlib.getHandDefineTable(by_user_info.hands, byseatid , i)
       
         local backMsg = json.encode(outCard)
         BASE:SendToClient(user_info.fid, backMsg, #backMsg)
@@ -1111,6 +1115,30 @@ function Room:BigGameOver(huseatid )
     for i=1, self._room_info.num do
         local to_fid = self:GetUserfidBySeatid(i)
         local backMsg = json.encode(msg_biggameover)
+        BASE:SendToClient(to_fid, backMsg, #backMsg)
+    end
+end
+
+function Room:OnReqDissolution(msg)
+    log.info("Room:OnReqDissolution")
+    local msg = type(msg) == "string" and json.decode(msg) or msg
+    if CONF.BASE.DEBUG then dump(msg) end
+
+    -- 
+    local msg_diss = {
+        roomid = self._room_info.roomid,
+        uid = msg.uid
+    }
+    
+    BASE:Dispatch(0, 0, CMD.LVM_CMD_DISSOLUTION, json.encode(msg_diss))
+
+    for i=1, self._room_info.num do
+        local to_fid = self:GetUserfidBySeatid(i)
+
+        local backMsg = json.encode({
+            cmd = CMD.RES_RESULTDISSOVEROOM,
+            result = 1
+        })
         BASE:SendToClient(to_fid, backMsg, #backMsg)
     end
 end

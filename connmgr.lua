@@ -25,7 +25,8 @@ function ConnMgr:init(data)
     BASE:RegCmdCB(CMD.LVM_CMD_CLIENT_CONN, handler(self, self.OnConnect))
     BASE:RegCmdCB(CMD.LVM_CMD_CLIENT_DISCONN, handler(self, self.OnDisConnect))
     BASE:RegCmdCB(CMD.LVM_CMD_CLIENT_MSG, handler(self, self.OnMessage))
-
+    BASE:RegCmdCB(CMD.LVM_CMD_DISSOLUTION, handler(self, self.OnDiss))
+    
     self.lst_reg_event = {
         [1] = self.OnHeart1,
         [CMD.REQ_HEART] = self.OnHeart,
@@ -144,7 +145,10 @@ function ConnMgr:OnLogin(msg)
 
             l_msg.fid = msg.fid
 
-            self:SetLogin(msg.fid, tonumber(l_msg.uid))
+            self:SetLogin(msg.fid, {
+                uid = tonumber(l_msg.uid),
+                sid = l_msg.sid
+                })
 
             local backMsg = json.encode(l_msg)
             BASE:SendToClient(msg.fid, backMsg, #backMsg)
@@ -183,7 +187,9 @@ function ConnMgr:OnLogin(msg)
 end
 
 function ConnMgr:SetLogin(fid, uid)
-    log.info("ConnMgr:SetLogin: fid="..fid..";uid="..uid)
+    log.info("ConnMgr:SetLogin: fid="..fid)
+    if CONF.BASE.DEBUG then dump(uid) end
+
     self.mapLoginFidToUid[fid] = uid
 end
 
@@ -194,14 +200,24 @@ end
 
 function ConnMgr:GetLogin(fid, uid)
     local uid = self.mapLoginFidToUid[fid]
-    log.info("ConnMgr:GetLogin: fid="..fid..";uid="..(uid or "null"))
+    log.info("ConnMgr:GetLogin: fid="..fid)
+    if CONF.BASE.DEBUG then dump(uid) end
+
     return uid
+end
+
+function ConnMgr:GetSidByUid(uid)
+    for k,v in pairs(self.mapLoginFidToUid) do
+        if v.uid == uid then
+            return v.sid
+        end
+    end
 end
 
 function ConnMgr:OnExitRoom(msg)
    log.info("ConnMgr:OnExitRoom:"..msg.fid)
    
-   local uid = self:GetLogin(msg.fid)
+   local login_info = self:GetLogin(msg.fid)
 
    local exit_cb = function(msg_ret)
         log.info("ConnMgr:OnExitRoom ret:"..msg_ret)
@@ -231,7 +247,7 @@ function ConnMgr:OnExitRoom(msg)
 
             --update room
             -- self.roomMgr:UpdateUserInfo(inroomid, )
-            self.roomMgr:ExitUser(inroomid, {uid=uid})
+            self.roomMgr:ExitUser(inroomid, {uid=login_info.uid})
             --broadcast
 
             self:UnLogin(msg.fid, nil)
@@ -322,8 +338,26 @@ end
 
 -- end
 
+function ConnMgr:OnDiss(msg, fid, sid)
+    log.info("ConnMgr:OnDiss")
+    local msg = type(msg) == "string" and json.decode(msg) or msg
+    if CONF.BASE.DEBUG then dump(msg) end
+
+    -- local login_info = self:GetLogin(msg.fid)
+
+    self.roomMgr:RemoveRoom(msg.roomid)
+
+    msg.sid = self:GetSidByUid(msg.uid)
+
+    if CONF.BASE.MODE_LUA_MAIN then
+        BASE:PostMessageIPC(self.loginServerId, 
+                CMD.REQ_DISSOLUTIONROOM, 
+                json.encode(msg))
+    end
+end
+
 function ConnMgr:OnMessage(strmsg, fid, sid)
-    log.info("LVM_CMD_CLIENT_MSG:"..fid..";msg:"..strmsg)
+    log.info("ConnMgr:OnMessage:"..fid..";msg:"..strmsg)
     if strmsg == "quit" then
         BASE:CloseClient(fid)
         return
@@ -333,7 +367,9 @@ function ConnMgr:OnMessage(strmsg, fid, sid)
     local status,msg,err = pcall(json.decode,strmsg)
     if status and msg and msg.cmd then
 
-        local uid = self:GetLogin(fid)
+        local login_info = self:GetLogin(fid)
+        local uid = login_info and login_info.uid
+        
         if msg.cmd ~= CMD.REQ_LOGIN then
             if uid == nil then
                 local backMsg = json.encode(
@@ -360,8 +396,9 @@ function ConnMgr:OnMessage(strmsg, fid, sid)
             local roominfo = self.roomMgr:FindUser(uid)
             if roominfo then
                 BASE:GetLvm(roominfo.lvm_roomid).BASE:PostMessage(roominfo.lvm_roomid, msg.cmd, json.encode(msg))
+            else
+                log.error("user not found in room")
             end
-        
         end
     else
         local backMsg = "echo from server:"..strmsg

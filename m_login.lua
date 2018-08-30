@@ -29,6 +29,8 @@ function Login:init(data)
 
     self.BASE:RegCmdCB(CMD.REQ_EXIT, handler(self, self.OnExit))
 
+    self.BASE:RegCmdCB(CMD.REQ_DISSOLUTIONROOM, handler(self, self.OnDiss))
+
 
 end
 function Login:OnLogin(msg, fid, sid)
@@ -173,6 +175,55 @@ function Login:OnExit(msg, fid, sid)
         return
     end
     self.BASE:RetMessage(fid, (ret), sid)
+end
+
+function Login:OnDiss(msg, fid, sid)
+    log.info("Login:OnDiss")
+    local msg = type(msg) == "string" and json.decode(msg) or msg
+    if CONF.BASE.DEBUG then dump(msg) end
+
+    local params = {
+        action = "remove_room"
+    }
+    table.merge(params, msg)
+    params = json.encode(params)
+    params = string.urlencode(params)
+
+    local ret 
+
+    res = hc:get(CONF.BASE.HTTP_ADDR..'?params='..params)
+
+    repeat
+        if res.body then
+           ret = res.body
+
+           local status,msg = pcall(json.decode, res.body)
+           if not status then
+              ret = json.encode({
+                cmd = CMD.RES_DISSOVEROOM,
+                code = ECODE.CODE_UNKNOW,
+                desc = ECODE.ErrDesc(ECODE.CODE_UNKNOW)
+                })
+              break
+           end
+           if 0 ~= msg.code then
+              break
+           end
+
+           table.merge(msg, msg.data)
+           msg.data = nil
+           ret = json.encode(msg)
+        else
+            log.error("request exit_room api failure:"..res.err)
+            ret = json.encode({
+                cmd = CMD.RES_DISSOVEROOM,
+                code = ECODE.CODE_UNKNOW,
+                desc = ECODE.ErrDesc(ECODE.CODE_UNKNOW)
+            })
+        end
+    until true
+
+    log.info("request remove_room api:".. ret)
 end
 
 -- objLogin = Login:new()

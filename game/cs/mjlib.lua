@@ -229,24 +229,26 @@ function M._check_normal(cards)
 
     local hu = false
     for i,_ in pairs(eye_tbl) do
-        repeat
-            cards[i] = cards[i] - 2
-            if not M._check_color(cards, 1, 9) then
-                break
-            end
-            if not M._check_color(cards, 10, 18) then
-                break
-            end
-            if not M._check_color(cards, 19, 27) then
-                break
-            end
+        if jiang[i] then -- 2, 5, 8
+            repeat
+                cards[i] = cards[i] - 2
+                if not M._check_color(cards, 1, 9) then
+                    break
+                end
+                if not M._check_color(cards, 10, 18) then
+                    break
+                end
+                if not M._check_color(cards, 19, 27) then
+                    break
+                end
 
-            hu = true
-        until(true)
-        if hu then
-            return true
+                hu = true
+            until(true)
+            if hu then
+                return true
+            end
+            cards[i] = cards[i] + 2
         end
-        cards[i] = cards[i] + 2
     end
     return hu
 end

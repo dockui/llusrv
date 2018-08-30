@@ -5,7 +5,7 @@ local _M = {
 _M.BASE = {
     MODE_LUA_MAIN = true,
     MODE_WS = false,
-    HTTP_ADDR = "http://localhost:8888/api",
+    HTTP_ADDR = "http://localhost/api",
     DEBUG = 1,
 }
 

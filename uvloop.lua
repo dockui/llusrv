@@ -21,7 +21,8 @@ local json = require "json"
 
 local ep = arg[1] or "ipc://llusrv"
 
-local host, port = (socket.dns.toip(socket.dns.gethostname())), 5556
+-- local host, port = (socket.dns.toip(socket.dns.gethostname())), 5556
+local host, port = ("192.168.0.2"), 5556
 
 local UVLoop = class("UVLoop")
 function UVLoop:ctor(obj,data)
