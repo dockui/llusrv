@@ -1000,7 +1000,7 @@ end
 
 function Room:HuAction(huseatid , fromcard)
 
-    if huseatid then
+    -- if huseatid then
         -- local putcard_cardidx = mjlib.CardIndex[self._room_info.putcard_card]
         local putcard_seatid = self._room_info.putcard_seatid
         -- local from_card = self._room_info.putcard_card --mjlib.CardDefine[putcard_card]
@@ -1011,6 +1011,7 @@ function Room:HuAction(huseatid , fromcard)
             huseatid = {huseatid},
             iszimo = putcard_seatid == huseatid,
             cards = {},
+            isWksJieSan = not huseatid and 1 or nil
         }
 
         for i=1, self._room_info.num do
@@ -1035,7 +1036,7 @@ function Room:HuAction(huseatid , fromcard)
         
             BASE:SendToClient(to_fid, backMsg, #backMsg)
         end
-    end
+    -- end
 
 end
 
@@ -1129,7 +1130,7 @@ function Room:OnReqDissolution(msg)
         roomid = self._room_info.roomid,
         uid = msg.uid
     }
-    
+
     BASE:Dispatch(0, 0, CMD.LVM_CMD_DISSOLUTION, json.encode(msg_diss))
 
     for i=1, self._room_info.num do
@@ -1141,6 +1142,9 @@ function Room:OnReqDissolution(msg)
         })
         BASE:SendToClient(to_fid, backMsg, #backMsg)
     end
+
+    self:HuAction()
+    self:BigGameOver()
 end
 
 -- objRoom = Room:new()
