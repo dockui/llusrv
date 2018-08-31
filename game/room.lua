@@ -493,13 +493,14 @@ function Room:JudgeSelfAction(byseatid, card_idx, qishou)
 
     --hu
 
-    local bHu = mjlib.check_hu(num_tbl)
-    if bHu then
+    local huinfo = mjlib.check_hu(num_tbl)
+    if huinfo then
         table.insert(actions, {
             type = mjlib.ACTION_HU,
             qishou = qishou,
             })
-
+        table.insert(huinfo, mjlib.HU_TYPE_ZM)
+        user_info.huinfo = huinfo
     else
         local lstgang = mjlib.check_gang(num_tbl)
         if lstgang then
@@ -658,11 +659,12 @@ function Room:JudgeCPGH(card_idx, from_seatid)
 
         --hu
         num_tbl[card_idx] = num_tbl[card_idx] + 1
-        local bHu = mjlib.check_hu(num_tbl)
-        if bHu then
+        local huinfo = mjlib.check_hu(num_tbl)
+        if huinfo then
             table.insert(actions, {
-                type = 8
+                type = mjlib.ACTION_HU
                 })
+            user_info.huinfo = huinfo
         end
         num_tbl[card_idx] = num_tbl[card_idx] - 1
 
@@ -994,8 +996,9 @@ function Room:HandleCPGH(seatid, op_type)
     self:ClearActions()
 end
 
+
 function Room:GetHuTypes(user_info)
-    return {2}
+    return user_info.huinfo or {1}
 end
 
 function Room:HuAction(huseatid , fromcard)
@@ -1066,7 +1069,7 @@ function Room:GameOver(huseatid , fromcard)
         }
 
         if huseatid == i then
-            balanceinfo.types = {1} -- pinghu
+            balanceinfo.types = self:GetHuTypes(user_info)
         end
 
         table.insert(msg_gameover.scores, balanceinfo)

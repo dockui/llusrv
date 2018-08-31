@@ -372,7 +372,7 @@ function M.check_pengpeng(cards, waves)
 end
 
 -- 清一色
-function M.check_qingyise()
+function M.check_qingyise(cards)
     local n1 = 0
     local n2 = 0
     local n3 = 0
@@ -383,6 +383,9 @@ function M.check_qingyise()
     end
 
     -- 检查底下牌的颜色
+    return (n1 > 0 and n2 == 0 and n3 == 0) 
+        or (n2 > 0 and n1 == 0 and n3 == 0) 
+        or (n3 > 0 and n1 == 0 and n2 == 0)
 end
 
 -- 将将胡
@@ -515,8 +518,77 @@ function M.can_right_chi(hand_cards, card)
     return M.can_chi(hand_cards, card - 2, card - 1)
 end
 
+-- {"mj_wz_ph_xg", --1平胡
+-- "mj_wz_zm_xg",  --2自摸
+-- "mj_wz_sdx_xg", --3大四喜
+-- "mj_wz_bbh_xg", --4板板胡
+-- "mj_wz_qys_xg", --5缺一色
+-- "mj_wz_llx_xg", --6六六顺
+-- "mj_wz_pph_xg", --7碰碰胡
+-- "mj_wz_jjh_xg", --8将将胡
+-- "mj_wz_qinys_xg", --9清一色
+-- "mj_wz_qqr_xg",   --10全求人
+-- "mj_wz_qxd_xg",   --11小七对
+-- "mj_wz_hhxqd_xg", --12豪华小七对
+-- "mj_wz_hhxqd_xg", --13超豪华小七对
+-- "mj_wz_hdly_xg",  --14海底捞月
+-- "mj_wz_gskh_xg",  --15杠上开花
+-- "mj_wz_qgh_xg",   --16抢杠胡
+-- "MJ_GSP_XG",       --17杠上炮
+-- "mj_wz_gskh_xg",  --18杠上开花x2
+-- "MJ_GSP_XG",      --19杠上炮x2
+-- "MJ_QLS_XG",      --20缺兩色
+-- "",
+-- "",
+-- "MJ_ST_XG",         --23三同
+-- "MJ_YZH_XG",        --24一枝花
+-- "MJ_JTYN_XG",       --25金童玉女
+-- "MJ_BBG_XG",        --26步步高
+-- "MJ_ZTSX_XG",       --27中途大四喜
+-- "MJ_ZTLLS_XG"       --28中途六六顺
+-- }   
+M.HU_TYPE_PH = 1
+M.HU_TYPE_ZM = 2
+M.HU_TYPE_PPH = 7
+M.HU_TYPE_JJH = 8
+-- M.HU_TYPE_QYS = 9
+M.HU_TYPE_QDUI = 11
+M.HU_TYPE_QUEYS = 5
+M.HU_TYPE_QINGYS = 9
+
 function M.check_hu(cards)
-    return M._check_normal(cards)
+    local hutype = {}
+    repeat    
+        if M._check_normal(cards) then
+            table.insert(hutype, M.HU_TYPE_PH)
+            break
+        end
+        if M.check_pengpeng(cards) then
+            table.insert(hutype, M.HU_TYPE_PPH)
+            break
+        end   
+
+        if M.check_7dui(cards) then
+            table.insert(hutype, M.HU_TYPE_QDUI)
+            break
+        end  
+
+    until true
+
+    if #hutype > 0 then
+        if M.check_jiangjianghu(cards) then
+            table.insert(hutype, M.HU_TYPE_JJH)
+        end
+        
+        if M.check_qingyise(cards) then
+            table.insert(hutype, M.HU_TYPE_QINGYS)
+        elseif M.check_queyise(cards) then
+            table.insert(hutype, M.HU_TYPE_QUEYS)
+        end
+
+        return hutype
+    end    
+    return nil
 end
 
 function M.check_gang(hands)
