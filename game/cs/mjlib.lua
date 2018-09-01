@@ -244,10 +244,10 @@ function M._check_normal(cards)
 
                 hu = true
             until(true)
+            cards[i] = cards[i] + 2
             if hu then
                 return true
             end
-            cards[i] = cards[i] + 2
         end
     end
     return hu
@@ -556,37 +556,68 @@ M.HU_TYPE_QDUI = 11
 M.HU_TYPE_QUEYS = 5
 M.HU_TYPE_QINGYS = 9
 
-function M.check_hu(cards)
+-- {
+-- 1 "大胡自摸     ",
+-- 2-"小胡自摸     ",
+-- 3-"大胡接炮     ",
+-- 4-"小胡接炮     ",
+-- 5-"大胡点炮     ",
+-- 6-"小胡点炮     "}
+M.PAO_TYPE_DZM = 1
+M.PAO_TYPE_XZM = 2
+M.PAO_TYPE_DDP = 5
+M.PAO_TYPE_XDP = 6
+
+function M.check_hu(cards, zimo)
+    local score = 0
+    local xiaohu = zimo and 3 or 2
+    local dahu = zimo and 7 or 6
+    local pao_type = zimo and M.PAO_TYPE_XZM or M.PAO_TYPE_XDP
+
     local hutype = {}
     repeat    
         if M._check_normal(cards) then
             table.insert(hutype, M.HU_TYPE_PH)
-            break
+            score = score + xiaohu
+            -- break
         end
         if M.check_pengpeng(cards) then
             table.insert(hutype, M.HU_TYPE_PPH)
-            break
+            -- break
+            score = score + dahu
+
+            pao_type = zimo and M.PAO_TYPE_DZM or M.PAO_TYPE_DDP
         end   
 
         if M.check_7dui(cards) then
             table.insert(hutype, M.HU_TYPE_QDUI)
-            break
+            -- break
+            score = score + dahu
+
+            pao_type = zimo and M.PAO_TYPE_DZM or M.PAO_TYPE_DDP
         end  
 
+        if M.check_jiangjianghu(cards) then
+            table.insert(hutype, M.HU_TYPE_JJH)
+            score = score + dahu
+
+            pao_type = zimo and M.PAO_TYPE_DZM or M.PAO_TYPE_DDP
+        end
+
+        -- if M.check_queyise(cards) then
+        --     table.insert(hutype, M.HU_TYPE_QUEYS)
+        --     score = score + xiaohu
+        -- end
     until true
 
     if #hutype > 0 then
-        if M.check_jiangjianghu(cards) then
-            table.insert(hutype, M.HU_TYPE_JJH)
-        end
-        
         if M.check_qingyise(cards) then
             table.insert(hutype, M.HU_TYPE_QINGYS)
-        elseif M.check_queyise(cards) then
-            table.insert(hutype, M.HU_TYPE_QUEYS)
-        end
+            score = score + dahu
 
-        return hutype
+            pao_type = zimo and M.PAO_TYPE_DZM or M.PAO_TYPE_DDP
+        end
+        return hutype, score, pao_type
     end    
     return nil
 end

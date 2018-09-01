@@ -493,14 +493,17 @@ function Room:JudgeSelfAction(byseatid, card_idx, qishou)
 
     --hu
 
-    local huinfo = mjlib.check_hu(num_tbl)
+    local huinfo, score, pao_type = mjlib.check_hu(num_tbl, true)
     if huinfo then
         table.insert(actions, {
             type = mjlib.ACTION_HU,
             qishou = qishou,
             })
         table.insert(huinfo, mjlib.HU_TYPE_ZM)
-        user_info.huinfo = huinfo
+        user_info.tmp_huinfo = huinfo
+        user_info.tmp_huscore = score
+        user_info.tmp_pao_type = pao_type
+
     else
         local lstgang = mjlib.check_gang(num_tbl)
         if lstgang then
@@ -659,12 +662,14 @@ function Room:JudgeCPGH(card_idx, from_seatid)
 
         --hu
         num_tbl[card_idx] = num_tbl[card_idx] + 1
-        local huinfo = mjlib.check_hu(num_tbl)
+        local huinfo, score, pao_type = mjlib.check_hu(num_tbl)
         if huinfo then
             table.insert(actions, {
                 type = mjlib.ACTION_HU
                 })
-            user_info.huinfo = huinfo
+            user_info.tmp_huinfo = huinfo
+            user_info.tmp_huscore = score
+            user_info.tmp_pao_type = pao_type
         end
         num_tbl[card_idx] = num_tbl[card_idx] - 1
 
@@ -998,7 +1003,71 @@ end
 
 
 function Room:GetHuTypes(user_info)
-    return user_info.huinfo or {1}
+    return user_info.tmp_huinfo or {1}
+end
+
+function Room:StatScore(huseatid , fromcard)
+    local putcard_seatid = self._room_info.putcard_seatid
+
+    local iszimo = putcard_seatid == huseatid
+
+    local hu_user_info = self:GetUserBySeatid(huseatid)
+    if huseatid then
+        if iszimo then
+            hu_user_info.incsore = (self._room_info.num - 1) * hu_user_info.tmp_huscore
+        else
+            hu_user_info.incsore = hu_user_info.tmp_huscore
+        end
+
+        hu_user_info.score = hu_user_info.score or 0
+        hu_user_info.score = hu_user_info.score + hu_user_info.incsore
+
+        for i=1, self._room_info.num do
+            local user_info = self:GetUserBySeatid(i)
+            if huseatid ~= i then
+                if iszimo or putcard_seatid == i then
+                    user_info.incsore = -hu_user_info.tmp_huscore
+                else
+                    user_info.incsore = 0
+                end
+                user_info.score = user_info.score or 0
+                user_info.score = user_info.score + user_info.incsore
+            end
+        end   
+    else
+        for i=1, self._room_info.num do
+            local user_info = self:GetUserBySeatid(i)
+            user_info.incsore = 0
+            user_info.score = user_info.score or 0
+        end       
+    end
+
+    -- CalcScore
+    -- table.insert(paocount, {
+    --         count = 1,
+    --         paotype = 1
+    --         })
+    if huseatid then
+        if hu_user_info.tmp_pao_type then
+            hu_user_info.paocount = hu_user_info.paocount or {}
+
+            local findpao = false
+            for k,v in pairs(hu_user_info.paocount) do
+                if v.paotype == hu_user_info.tmp_pao_type then
+                    v.count = v.count + 1
+                    findpao = true
+                    break
+                end
+            end
+
+            if not findpao then
+                table.insert(hu_user_info.paocount,{
+                    count = 1,
+                    paotype = hu_user_info.tmp_pao_type
+                })
+            end
+        end
+    end
 end
 
 function Room:HuAction(huseatid , fromcard)
@@ -1047,6 +1116,7 @@ function Room:GameOver(huseatid , fromcard)
     log.info("game over => ")
 
     self:HuAction(huseatid, fromcard)
+    self:StatScore(huseatid, fromcard)
 
     -- if huseatid then
     --     return
@@ -1063,8 +1133,8 @@ function Room:GameOver(huseatid , fromcard)
         local user_info = self:GetUserBySeatid(i)
 
         local balanceinfo = {
-            incsore = 1,
-            score = 12,
+            incsore = user_info.incsore,
+            score = user_info.score,
             seatid = i
         }
 
@@ -1088,6 +1158,7 @@ function Room:GameOver(huseatid , fromcard)
     self:ResetGame(huseatid)
 end
 
+
 function Room:BigGameOver(huseatid )
     log.info("BigGameOver => ")
 
@@ -1101,17 +1172,17 @@ function Room:BigGameOver(huseatid )
 
         local bigbalanceinfo = {
             owner_seatid = self._room_info.banker_seatid, -- unkown
-            score = 12,
+            score = user_info.score,
             seatid = i
         }
 
-        bigbalanceinfo.paocount = {}
+        bigbalanceinfo.paocount = user_info.paocount or {}
 
         -- unkown dahuzimo xiaohuzimo jipao dianpao
-        table.insert(bigbalanceinfo.paocount, {
-            count = 1,
-            paotype = 1
-            })
+        -- table.insert(bigbalanceinfo.paocount, {
+        --     count = 1,
+        --     paotype = 1
+        --     })
 
         table.insert(msg_biggameover.scores, bigbalanceinfo)
     end 
