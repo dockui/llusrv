@@ -111,7 +111,7 @@ function Login:OnLogin(msg, fid, sid)
         end
     until true
 
-    log.info("request login api:".. ret)
+    log.info("response login api:".. ret)
     
     if CONF.BASE.MODE_LUA_MAIN then
         self.BASE:RetMessageIPC(CONF.LVM_MODULE.LOGIN, 
@@ -167,7 +167,7 @@ function Login:OnExit(msg, fid, sid)
         end
     until true
 
-    log.info("request exit_room api:".. ret)
+    log.info("response exit_room api:".. ret)
     
     if CONF.BASE.MODE_LUA_MAIN then
         self.BASE:RetMessageIPC(CONF.LVM_MODULE.LOGIN, 
@@ -223,7 +223,7 @@ function Login:OnDiss(msg, fid, sid)
         end
     until true
 
-    log.info("request remove_room api:".. ret)
+    log.info("response remove_room api:".. ret)
 end
 
 -- objLogin = Login:new()

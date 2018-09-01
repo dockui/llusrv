@@ -85,7 +85,24 @@ function Room:OnUserExit(msg)
 
     -- table.merge(userinfo, msg)
     -- room_info
-    self:BuildUserSeatid(msg)
+
+    local msg_out = {
+        cmd = CMD.RES_OUTTABLE,
+        binded = 0, -- 0: exist; 1: outline
+        seatid = seatid_for
+    }
+    for i=1, self._room_info.num do
+        -- local user_info = self:GetUserBySeatid(i)
+        local to_fid = self:GetUserfidBySeatid(i)
+
+        BASE:SendToClient(to_fid, msg_out)
+    end
+
+    if msg.inroom_info then
+        table.merge(self._room_info , msg.inroom_info or {})
+
+        self:BuildUserSeatid(msg.inroom_info)
+    end
 end
 
 function Room:OnUpdateUserInfo(msg)
@@ -186,8 +203,12 @@ end
 
 function Room:OnEnterTable(msg)
     log.info("Room:OnEnterTable() "..msg)
-    local msg = json.decode(msg)
-    table.merge(self._room_info , msg.inroom_info or {})
+    local msg = type(msg) == "string" and json.decode(msg) or msg
+    if CONF.BASE.DEBUG then dump(msg) end
+    
+    if msg.inroom_info then
+        table.merge(self._room_info , msg.inroom_info or {})
+    end
 
     -- self._lst_user[msg.fid] = msg
     

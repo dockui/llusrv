@@ -215,9 +215,13 @@ function ConnMgr:GetSidByUid(uid)
 end
 
 function ConnMgr:OnExitRoom(msg)
-   log.info("ConnMgr:OnExitRoom:"..msg.fid)
-   
+    local msg = type(msg) == "string" and json.decode(msg) or msg
+    if CONF.BASE.DEBUG then dump(msg) end
+
+    log.info("ConnMgr:OnExitRoom:"..msg.fid)
+
    local login_info = self:GetLogin(msg.fid)
+   msg.sid = login_info.sid
 
    local exit_cb = function(msg_ret)
         log.info("ConnMgr:OnExitRoom ret:"..msg_ret)
@@ -247,7 +251,7 @@ function ConnMgr:OnExitRoom(msg)
 
             --update room
             -- self.roomMgr:UpdateUserInfo(inroomid, )
-            self.roomMgr:ExitUser(inroomid, {uid=login_info.uid})
+            self.roomMgr:ExitUser(inroomid, {uid=login_info.uid, inroom_info = inroom_info})
             --broadcast
 
             self:UnLogin(msg.fid, nil)
@@ -369,7 +373,7 @@ function ConnMgr:OnMessage(strmsg, fid, sid)
 
         local login_info = self:GetLogin(fid)
         local uid = login_info and login_info.uid
-        
+
         if msg.cmd ~= CMD.REQ_LOGIN then
             if uid == nil then
                 local backMsg = json.encode(
