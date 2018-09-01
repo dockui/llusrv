@@ -32,6 +32,11 @@ function Room:init(data)
     self._desk_cards = {}
     self._room_info = {}
 
+    
+    self.BASE:RegCmdCB(CMD.REQ_DTBQ, handler(self, self.OnDTBQ))
+      
+    self.BASE:RegCmdCB(CMD.REQ_CHAT, handler(self, self.OnChat))
+
     self.BASE:RegCmdCB(CMD.REQ_ENTERTABLE, handler(self, self.OnEnterTable))
     
     self.BASE:RegCmdCB(CMD.LVM_CMD_UPDATE_USER_INFO, handler(self, self.OnUpdateUserInfo))
@@ -200,6 +205,55 @@ function Room:IsAllReady()
     end
     return true
 end
+
+-- {  cmd = PUBLIC_CMD.REQ_DTBQ,
+--     toseatid = self.otherSeatid,
+--     seatid = self.mySeatid,
+--     actiontype = sum,
+--     isten = ten
+-- }
+function Room:OnDTBQ(msg)
+    local msg = type(msg) == "string" and json.decode(msg) or msg
+    if CONF.BASE.DEBUG then dump(msg) end
+    log.info("Room:OnDTBQ "..msg.uid)
+
+    local msg_dtbq = msg
+
+    for i=1, self._room_info.num do
+        local to_fid = self:GetUserfidBySeatid(i)
+
+        BASE:SendToClient(to_fid, msg_dtbq)
+    end 
+end
+
+-- cmd = MJ_CMD.REQ_CHAT,
+-- type = 3,
+-- text = isShield(content),
+-- index = 0}
+function Room:OnChat(msg)
+    local msg = type(msg) == "string" and json.decode(msg) or msg
+    if CONF.BASE.DEBUG then dump(msg) end
+    log.info("Room:OnChat "..msg.uid)
+
+    local user_info = self:GetUser(msg.uid)
+    if not user_info then
+        log.error("user not found")
+        return
+    end
+
+    local msg_chat = msg
+    table.merge(msg_chat, {
+        cmd = CMD.RES_CHAT,
+        seatid = user_info.seatid,
+    })
+
+    for i=1, self._room_info.num do
+        local to_fid = self:GetUserfidBySeatid(i)
+
+        BASE:SendToClient(to_fid, msg_chat)
+    end 
+end
+
 
 function Room:OnEnterTable(msg)
     log.info("Room:OnEnterTable() "..msg)

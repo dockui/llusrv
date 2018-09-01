@@ -24,7 +24,11 @@ local M = {
     LVM_CMD_UPDATE_USER_INFO = 170,
 
     LVM_CMD_DISSOLUTION = 180,
-    
+
+    --public cmd
+    QH_MASTER = 4888, 
+    REQ_DTBQ = 1999,
+
     --1000 ~ game cmd
     --请求
     REQ_CREATE_TABLE = 999,
