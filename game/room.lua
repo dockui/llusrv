@@ -143,8 +143,13 @@ function Room:BuildUserSeatid(data)
 end
 
 function Room:ResetGame(huseatid)
+    self:ClearActions()
+
     for i, v in pairs(self._lst_user) do
         v.ready = false
+        v.hands = {}
+        v.outcards = {}
+        v.eats = {}
     end
 
     self._room_info.play_round = self._room_info.play_round and self._room_info.play_round + 1 or 1
