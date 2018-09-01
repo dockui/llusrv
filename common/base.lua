@@ -178,6 +178,13 @@ function Base:SendToClient(wid, msg, len)
         return
     end
 
+    log.debug("SendToClient wid:"..wid)
+
+    if CONF.BASE.DEBUG then dump(msg) end
+
+    msg = type(msg) == "string" and msg or json.encode(msg)
+    len = len or #msg
+
     log.debug("SendToClient wid:"..wid..", msg:"..msg..";len:"..len)
 
     if CONF.BASE.MODE_LUA_MAIN then

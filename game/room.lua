@@ -130,6 +130,8 @@ function Room:ResetGame(huseatid)
     if huseatid then
         self._room_info.banker_seatid = huseatid
     end
+
+    self._room_info.gamestate = 2
 end
 
 function Room:OnReady(msg)
@@ -145,9 +147,25 @@ function Room:OnReady(msg)
     user_info.ready = msg.ready
 
     if self:IsUserFull() and self:IsAllReady() then
-         
+        
         self:StartGame()
+    else 
+        self:SendOnReady(user_info.seatid)
     end 
+end
+
+function Room:SendOnReady(seatid_for)
+    local msg_ready = {
+        cmd = CMD.RES_READY,
+        type = 1,
+        seatid = seatid_for
+    }
+    for i=1, self._room_info.num do
+        -- local user_info = self:GetUserBySeatid(i)
+        local to_fid = self:GetUserfidBySeatid(i)
+
+        BASE:SendToClient(to_fid, msg_ready)
+    end
 end
 
 function Room:IsUserFull()
@@ -275,17 +293,32 @@ function Room:SendTableInfo(uid_for)
         local user_info = self:GetUserBySeatid(i)
         if user_info then
             user_info = clone(user_info)
-            user_info.hands = user_info.hands and mjlib.getHandDefineTable(user_info.hands, user_info_for.seatid , j) or {}
+            user_info.hands = user_info.hands and mjlib.getHandDefineTable(user_info.hands, user_info_for.seatid , i) or {}
 
             table.insert(msg_tableinfo.players, user_info)
         end
     end
 
 
-    local backMsg = json.encode(msg_tableinfo)
-    BASE:SendToClient(user_info_for.fid, backMsg, #backMsg)
+    -- local backMsg = json.encode(msg_tableinfo)
+    BASE:SendToClient(user_info_for.fid, msg_tableinfo)
+
+    self:SendAction(uid_for)
 end
 
+function Room:SendAction(uid_for)
+
+    local user_info_for = self:GetUser(uid_for)
+    if user_info_for and user_info_for.actions then
+        local msg_actions = {
+            cmd = CMD.RES_ACTIONS,
+            actions = user_info_for.actions
+        }
+
+        -- local backMsg = json.encode(msg_actions)
+        BASE:SendToClient(user_info_for.fid, msg_actions)
+    end
+end
 
 function Room:TestSetUser(lst_user)
     self._lst_user = lst_user
@@ -339,6 +372,8 @@ function Room:CreateDeskCards()
 end
 
 function Room:StartGame()
+
+    self._room_info.gamestate = 1
 
     self:CreateDeskCards()
 
@@ -683,7 +718,7 @@ function Room:JudgeCPGH(card_idx, from_seatid)
                         }})
 
             table.insert(actions, {
-                type = 7,
+                type = mjlib.ACTION_GANG,
                 options = options
                 })
         end
@@ -692,7 +727,7 @@ function Room:JudgeCPGH(card_idx, from_seatid)
         local bPeng = mjlib.can_peng(num_tbl, card_idx)
         if bPeng then
             table.insert(actions, {
-                type = 5
+                type = mjlib.ACTION_PENG,
                 })
         end
 
@@ -726,7 +761,7 @@ function Room:JudgeCPGH(card_idx, from_seatid)
 
             if #options > 0 then
                 table.insert(actions, {
-                    type = 4,
+                    type = mjlib.ACTION_CHI,
                     options = options
                     })
             end
@@ -734,7 +769,7 @@ function Room:JudgeCPGH(card_idx, from_seatid)
 
         if #actions > 0 then
             -- guo
-            table.insert(actions, {type = 1})
+            table.insert(actions, {type = mjlib.ACTION_GUO})
             
             --save tmp
             user_info.actions = actions
