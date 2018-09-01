@@ -241,7 +241,7 @@ function Room:InitTableInfo()
         tid = self._room_info.roomid,
 
         total_round = 2, 
-        zhaniao_count = 1,
+        zhaniao_count = 2,
 
         tid = self._room_info.roomid,
 
@@ -302,7 +302,7 @@ function Room:CreateDeskCards()
 
     -- zuo pai
     card_ap = {}
-    local hands1 = {16,16,16, 17,17,17, 26,26,26, 28,28,28, 29, 28}
+    local hands1 = {16,16,16, 17,17,17, 26,26,26, 28,28,28, 12, 35}
     table.sort(hands1)
     for i=1,#hands1 do
         hands1[i] = mjlib.CardIndex[hands1[i]]
@@ -1112,11 +1112,76 @@ function Room:HuAction(huseatid , fromcard)
 
 end
 
+-- cmd" : 4030,
+--    "zhaniao" : [
+--       {
+--          "card" : 27,
+--          "iszhong" : 1,
+--          "seatid" : 1
+--       },
+--       {
+--          "card" : 27,
+--          "iszhong" : 1,
+--          "seatid" : 1
+--       }
+--    ]
+-- }
+function Room:ZhaNiao(huseatid , fromcard)
+    log.info("Room:ZhaNiao cnt = "..self._room_info.zhaniao_count)
+
+    if not huseatid then
+        return
+    end
+
+    local msg_zhaniao = {
+        cmd = CMD.RES_ZHANIAO,
+        zhaniao = {}
+    }
+
+    if #self._desk_cards < self._room_info.zhaniao_count then
+        log.info(" card over")
+        return
+    end
+
+    for c = 1, self._room_info.zhaniao_count do
+        local card_idx = table.remove(self._desk_cards)
+        local card_val_index = mjlib.CardDefine[card_idx] % 10
+        local seatid_add = 0
+        if card_val_index == 1 or card_val_index == 5 or card_val_index == 9 then seatid_add = 0 end
+        if card_val_index == 2 or card_val_index == 6 then seatid_add = 1 end
+        if card_val_index == 3 or card_val_index == 7 then seatid_add = 2 end
+        if card_val_index == 4 or card_val_index == 8 then seatid_add = 3 end
+        
+        local seatid = huseatid + seatid_add
+
+        log.info("Room:ZhaNiao seatid="..seatid..";val_index="..card_val_index)
+
+        -- if seatid <= self._room_info.num then
+            local niaoinfo = {
+                 card =  mjlib.CardDefine[card_idx],
+                 iszhong = card_val_index == 1 or card_val_index == 5 or card_val_index == 9 ,
+                 seatid = seatid
+              }
+            
+            table.insert(msg_zhaniao.zhaniao, niaoinfo)
+        -- end
+    end
+
+    for i=1, self._room_info.num do
+        local to_fid = self:GetUserfidBySeatid(i)
+        local backMsg = json.encode(msg_zhaniao)
+        BASE:SendToClient(to_fid, backMsg, #backMsg)
+    end
+end
+
 function Room:GameOver(huseatid , fromcard)
     log.info("game over => ")
 
     self:HuAction(huseatid, fromcard)
+    self:ZhaNiao(huseatid, fromcard)
     self:StatScore(huseatid, fromcard)
+
+
 
     -- if huseatid then
     --     return
