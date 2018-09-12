@@ -32,6 +32,11 @@ function Room:init(data)
     self._desk_cards = {}
     self._room_info = {}
 
+    
+    self.BASE:RegCmdCB(CMD.REQ_DTBQ, handler(self, self.OnDTBQ))
+      
+    self.BASE:RegCmdCB(CMD.REQ_CHAT, handler(self, self.OnChat))
+
     self.BASE:RegCmdCB(CMD.REQ_ENTERTABLE, handler(self, self.OnEnterTable))
     
     self.BASE:RegCmdCB(CMD.LVM_CMD_UPDATE_USER_INFO, handler(self, self.OnUpdateUserInfo))
@@ -85,7 +90,24 @@ function Room:OnUserExit(msg)
 
     -- table.merge(userinfo, msg)
     -- room_info
-    self:BuildUserSeatid(msg)
+
+    local msg_out = {
+        cmd = CMD.RES_OUTTABLE,
+        binded = 0, -- 0: exist; 1: outline
+        seatid = seatid_for
+    }
+    for i=1, self._room_info.num do
+        -- local user_info = self:GetUserBySeatid(i)
+        local to_fid = self:GetUserfidBySeatid(i)
+
+        BASE:SendToClient(to_fid, msg_out)
+    end
+
+    if msg.inroom_info then
+        table.merge(self._room_info , msg.inroom_info or {})
+
+        self:BuildUserSeatid(msg.inroom_info)
+    end
 end
 
 function Room:OnUpdateUserInfo(msg)
@@ -121,8 +143,13 @@ function Room:BuildUserSeatid(data)
 end
 
 function Room:ResetGame(huseatid)
+    self:ClearActions()
+
     for i, v in pairs(self._lst_user) do
         v.ready = false
+        v.hands = {}
+        v.outcards = {}
+        v.eats = {}
     end
 
     self._room_info.play_round = self._room_info.play_round and self._room_info.play_round + 1 or 1
@@ -130,6 +157,8 @@ function Room:ResetGame(huseatid)
     if huseatid then
         self._room_info.banker_seatid = huseatid
     end
+
+    self._room_info.gamestate = 2
 end
 
 function Room:OnReady(msg)
@@ -145,9 +174,25 @@ function Room:OnReady(msg)
     user_info.ready = msg.ready
 
     if self:IsUserFull() and self:IsAllReady() then
-         
+        
         self:StartGame()
+    else 
+        self:SendOnReady(user_info.seatid)
     end 
+end
+
+function Room:SendOnReady(seatid_for)
+    local msg_ready = {
+        cmd = CMD.RES_READY,
+        type = 1,
+        seatid = seatid_for
+    }
+    for i=1, self._room_info.num do
+        -- local user_info = self:GetUserBySeatid(i)
+        local to_fid = self:GetUserfidBySeatid(i)
+
+        BASE:SendToClient(to_fid, msg_ready)
+    end
 end
 
 function Room:IsUserFull()
@@ -166,10 +211,63 @@ function Room:IsAllReady()
     return true
 end
 
+-- {  cmd = PUBLIC_CMD.REQ_DTBQ,
+--     toseatid = self.otherSeatid,
+--     seatid = self.mySeatid,
+--     actiontype = sum,
+--     isten = ten
+-- }
+function Room:OnDTBQ(msg)
+    local msg = type(msg) == "string" and json.decode(msg) or msg
+    if CONF.BASE.DEBUG then dump(msg) end
+    log.info("Room:OnDTBQ "..msg.uid)
+
+    local msg_dtbq = msg
+
+    for i=1, self._room_info.num do
+        local to_fid = self:GetUserfidBySeatid(i)
+
+        BASE:SendToClient(to_fid, msg_dtbq)
+    end 
+end
+
+-- cmd = MJ_CMD.REQ_CHAT,
+-- type = 3,
+-- text = isShield(content),
+-- index = 0}
+function Room:OnChat(msg)
+    local msg = type(msg) == "string" and json.decode(msg) or msg
+    if CONF.BASE.DEBUG then dump(msg) end
+    log.info("Room:OnChat "..msg.uid)
+
+    local user_info = self:GetUser(msg.uid)
+    if not user_info then
+        log.error("user not found")
+        return
+    end
+
+    local msg_chat = msg
+    table.merge(msg_chat, {
+        cmd = CMD.RES_CHAT,
+        seatid = user_info.seatid,
+    })
+
+    for i=1, self._room_info.num do
+        local to_fid = self:GetUserfidBySeatid(i)
+
+        BASE:SendToClient(to_fid, msg_chat)
+    end 
+end
+
+
 function Room:OnEnterTable(msg)
     log.info("Room:OnEnterTable() "..msg)
-    local msg = json.decode(msg)
-    table.merge(self._room_info , msg.inroom_info or {})
+    local msg = type(msg) == "string" and json.decode(msg) or msg
+    if CONF.BASE.DEBUG then dump(msg) end
+    
+    if msg.inroom_info then
+        table.merge(self._room_info , msg.inroom_info or {})
+    end
 
     -- self._lst_user[msg.fid] = msg
     
@@ -241,7 +339,7 @@ function Room:InitTableInfo()
         tid = self._room_info.roomid,
 
         total_round = 2, 
-        zhaniao_count = 1,
+        zhaniao_count = 2,
 
         tid = self._room_info.roomid,
 
@@ -275,17 +373,32 @@ function Room:SendTableInfo(uid_for)
         local user_info = self:GetUserBySeatid(i)
         if user_info then
             user_info = clone(user_info)
-            user_info.hands = user_info.hands and mjlib.getHandDefineTable(user_info.hands, user_info_for.seatid , j) or {}
+            user_info.hands = user_info.hands and mjlib.getHandDefineTable(user_info.hands, user_info_for.seatid , i) or {}
 
             table.insert(msg_tableinfo.players, user_info)
         end
     end
 
 
-    local backMsg = json.encode(msg_tableinfo)
-    BASE:SendToClient(user_info_for.fid, backMsg, #backMsg)
+    -- local backMsg = json.encode(msg_tableinfo)
+    BASE:SendToClient(user_info_for.fid, msg_tableinfo)
+
+    self:SendAction(uid_for)
 end
 
+function Room:SendAction(uid_for)
+
+    local user_info_for = self:GetUser(uid_for)
+    if user_info_for and user_info_for.actions then
+        local msg_actions = {
+            cmd = CMD.RES_ACTIONS,
+            actions = user_info_for.actions
+        }
+
+        -- local backMsg = json.encode(msg_actions)
+        BASE:SendToClient(user_info_for.fid, msg_actions)
+    end
+end
 
 function Room:TestSetUser(lst_user)
     self._lst_user = lst_user
@@ -302,7 +415,7 @@ function Room:CreateDeskCards()
 
     -- zuo pai
     card_ap = {}
-    local hands1 = {16,16,16, 17,17,17, 26,26,26, 28,28,28, 29, 28}
+    local hands1 = {16,16,16, 17,17,17, 26,26,26, 28,28,28, 12, 35}
     table.sort(hands1)
     for i=1,#hands1 do
         hands1[i] = mjlib.CardIndex[hands1[i]]
@@ -339,6 +452,8 @@ function Room:CreateDeskCards()
 end
 
 function Room:StartGame()
+
+    self._room_info.gamestate = 1
 
     self:CreateDeskCards()
 
@@ -493,12 +608,16 @@ function Room:JudgeSelfAction(byseatid, card_idx, qishou)
 
     --hu
 
-    local bHu = mjlib.check_hu(num_tbl)
-    if bHu then
+    local huinfo, score, pao_type = mjlib.check_hu(num_tbl, true)
+    if huinfo then
         table.insert(actions, {
             type = mjlib.ACTION_HU,
             qishou = qishou,
             })
+        table.insert(huinfo, mjlib.HU_TYPE_ZM)
+        user_info.tmp_huinfo = huinfo
+        user_info.tmp_huscore = score
+        user_info.tmp_pao_type = pao_type
 
     else
         local lstgang = mjlib.check_gang(num_tbl)
@@ -658,11 +777,14 @@ function Room:JudgeCPGH(card_idx, from_seatid)
 
         --hu
         num_tbl[card_idx] = num_tbl[card_idx] + 1
-        local bHu = mjlib.check_hu(num_tbl)
-        if bHu then
+        local huinfo, score, pao_type = mjlib.check_hu(num_tbl)
+        if huinfo then
             table.insert(actions, {
-                type = 8
+                type = mjlib.ACTION_HU
                 })
+            user_info.tmp_huinfo = huinfo
+            user_info.tmp_huscore = score
+            user_info.tmp_pao_type = pao_type
         end
         num_tbl[card_idx] = num_tbl[card_idx] - 1
 
@@ -676,7 +798,7 @@ function Room:JudgeCPGH(card_idx, from_seatid)
                         }})
 
             table.insert(actions, {
-                type = 7,
+                type = mjlib.ACTION_GANG,
                 options = options
                 })
         end
@@ -685,7 +807,7 @@ function Room:JudgeCPGH(card_idx, from_seatid)
         local bPeng = mjlib.can_peng(num_tbl, card_idx)
         if bPeng then
             table.insert(actions, {
-                type = 5
+                type = mjlib.ACTION_PENG,
                 })
         end
 
@@ -719,7 +841,7 @@ function Room:JudgeCPGH(card_idx, from_seatid)
 
             if #options > 0 then
                 table.insert(actions, {
-                    type = 4,
+                    type = mjlib.ACTION_CHI,
                     options = options
                     })
             end
@@ -727,7 +849,7 @@ function Room:JudgeCPGH(card_idx, from_seatid)
 
         if #actions > 0 then
             -- guo
-            table.insert(actions, {type = 1})
+            table.insert(actions, {type = mjlib.ACTION_GUO})
             
             --save tmp
             user_info.actions = actions
@@ -994,13 +1116,78 @@ function Room:HandleCPGH(seatid, op_type)
     self:ClearActions()
 end
 
+
 function Room:GetHuTypes(user_info)
-    return {2}
+    return user_info.tmp_huinfo or {1}
+end
+
+function Room:StatScore(huseatid , fromcard)
+    local putcard_seatid = self._room_info.putcard_seatid
+
+    local iszimo = putcard_seatid == huseatid
+
+    local hu_user_info = self:GetUserBySeatid(huseatid)
+    if huseatid then
+        if iszimo then
+            hu_user_info.incsore = (self._room_info.num - 1) * hu_user_info.tmp_huscore
+        else
+            hu_user_info.incsore = hu_user_info.tmp_huscore
+        end
+
+        hu_user_info.score = hu_user_info.score or 0
+        hu_user_info.score = hu_user_info.score + hu_user_info.incsore
+
+        for i=1, self._room_info.num do
+            local user_info = self:GetUserBySeatid(i)
+            if huseatid ~= i then
+                if iszimo or putcard_seatid == i then
+                    user_info.incsore = -hu_user_info.tmp_huscore
+                else
+                    user_info.incsore = 0
+                end
+                user_info.score = user_info.score or 0
+                user_info.score = user_info.score + user_info.incsore
+            end
+        end   
+    else
+        for i=1, self._room_info.num do
+            local user_info = self:GetUserBySeatid(i)
+            user_info.incsore = 0
+            user_info.score = user_info.score or 0
+        end       
+    end
+
+    -- CalcScore
+    -- table.insert(paocount, {
+    --         count = 1,
+    --         paotype = 1
+    --         })
+    if huseatid then
+        if hu_user_info.tmp_pao_type then
+            hu_user_info.paocount = hu_user_info.paocount or {}
+
+            local findpao = false
+            for k,v in pairs(hu_user_info.paocount) do
+                if v.paotype == hu_user_info.tmp_pao_type then
+                    v.count = v.count + 1
+                    findpao = true
+                    break
+                end
+            end
+
+            if not findpao then
+                table.insert(hu_user_info.paocount,{
+                    count = 1,
+                    paotype = hu_user_info.tmp_pao_type
+                })
+            end
+        end
+    end
 end
 
 function Room:HuAction(huseatid , fromcard)
 
-    if huseatid then
+    -- if huseatid then
         -- local putcard_cardidx = mjlib.CardIndex[self._room_info.putcard_card]
         local putcard_seatid = self._room_info.putcard_seatid
         -- local from_card = self._room_info.putcard_card --mjlib.CardDefine[putcard_card]
@@ -1011,6 +1198,7 @@ function Room:HuAction(huseatid , fromcard)
             huseatid = {huseatid},
             iszimo = putcard_seatid == huseatid,
             cards = {},
+            isWksJieSan = not huseatid and 1 or nil
         }
 
         for i=1, self._room_info.num do
@@ -1035,14 +1223,80 @@ function Room:HuAction(huseatid , fromcard)
         
             BASE:SendToClient(to_fid, backMsg, #backMsg)
         end
+    -- end
+
+end
+
+-- cmd" : 4030,
+--    "zhaniao" : [
+--       {
+--          "card" : 27,
+--          "iszhong" : 1,
+--          "seatid" : 1
+--       },
+--       {
+--          "card" : 27,
+--          "iszhong" : 1,
+--          "seatid" : 1
+--       }
+--    ]
+-- }
+function Room:ZhaNiao(huseatid , fromcard)
+    log.info("Room:ZhaNiao cnt = "..self._room_info.zhaniao_count)
+
+    if not huseatid then
+        return
     end
 
+    local msg_zhaniao = {
+        cmd = CMD.RES_ZHANIAO,
+        zhaniao = {}
+    }
+
+    if #self._desk_cards < self._room_info.zhaniao_count then
+        log.info(" card over")
+        return
+    end
+
+    for c = 1, self._room_info.zhaniao_count do
+        local card_idx = table.remove(self._desk_cards)
+        local card_val_index = mjlib.CardDefine[card_idx] % 10
+        local seatid_add = 0
+        if card_val_index == 1 or card_val_index == 5 or card_val_index == 9 then seatid_add = 0 end
+        if card_val_index == 2 or card_val_index == 6 then seatid_add = 1 end
+        if card_val_index == 3 or card_val_index == 7 then seatid_add = 2 end
+        if card_val_index == 4 or card_val_index == 8 then seatid_add = 3 end
+        
+        local seatid = huseatid + seatid_add
+
+        log.info("Room:ZhaNiao seatid="..seatid..";val_index="..card_val_index)
+
+        -- if seatid <= self._room_info.num then
+            local niaoinfo = {
+                 card =  mjlib.CardDefine[card_idx],
+                 iszhong = card_val_index == 1 or card_val_index == 5 or card_val_index == 9 ,
+                 seatid = seatid
+              }
+            
+            table.insert(msg_zhaniao.zhaniao, niaoinfo)
+        -- end
+    end
+
+    for i=1, self._room_info.num do
+        local to_fid = self:GetUserfidBySeatid(i)
+        local backMsg = json.encode(msg_zhaniao)
+        BASE:SendToClient(to_fid, backMsg, #backMsg)
+    end
 end
 
 function Room:GameOver(huseatid , fromcard)
     log.info("game over => ")
 
     self:HuAction(huseatid, fromcard)
+    self:ZhaNiao(huseatid, fromcard)
+    self:StatScore(huseatid, fromcard)
+
+
 
     -- if huseatid then
     --     return
@@ -1059,13 +1313,13 @@ function Room:GameOver(huseatid , fromcard)
         local user_info = self:GetUserBySeatid(i)
 
         local balanceinfo = {
-            incsore = 1,
-            score = 12,
+            incsore = user_info.incsore,
+            score = user_info.score,
             seatid = i
         }
 
         if huseatid == i then
-            balanceinfo.types = {1} -- pinghu
+            balanceinfo.types = self:GetHuTypes(user_info)
         end
 
         table.insert(msg_gameover.scores, balanceinfo)
@@ -1084,6 +1338,7 @@ function Room:GameOver(huseatid , fromcard)
     self:ResetGame(huseatid)
 end
 
+
 function Room:BigGameOver(huseatid )
     log.info("BigGameOver => ")
 
@@ -1097,17 +1352,17 @@ function Room:BigGameOver(huseatid )
 
         local bigbalanceinfo = {
             owner_seatid = self._room_info.banker_seatid, -- unkown
-            score = 12,
+            score = user_info.score,
             seatid = i
         }
 
-        bigbalanceinfo.paocount = {}
+        bigbalanceinfo.paocount = user_info.paocount or {}
 
         -- unkown dahuzimo xiaohuzimo jipao dianpao
-        table.insert(bigbalanceinfo.paocount, {
-            count = 1,
-            paotype = 1
-            })
+        -- table.insert(bigbalanceinfo.paocount, {
+        --     count = 1,
+        --     paotype = 1
+        --     })
 
         table.insert(msg_biggameover.scores, bigbalanceinfo)
     end 
@@ -1129,7 +1384,7 @@ function Room:OnReqDissolution(msg)
         roomid = self._room_info.roomid,
         uid = msg.uid
     }
-    
+
     BASE:Dispatch(0, 0, CMD.LVM_CMD_DISSOLUTION, json.encode(msg_diss))
 
     for i=1, self._room_info.num do
@@ -1141,6 +1396,9 @@ function Room:OnReqDissolution(msg)
         })
         BASE:SendToClient(to_fid, backMsg, #backMsg)
     end
+
+    self:HuAction()
+    self:BigGameOver()
 end
 
 -- objRoom = Room:new()

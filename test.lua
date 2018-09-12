@@ -55,15 +55,15 @@ local json = require "json"
 -- local mr = ossl.md5("ewq")
 -- print(mr)
 
-hc = require('httpclient').new()
-hc:set_default("timeout", 5)
--- res = hc:get('http://localhost:9090/api?params={%22action%22:%22login%22,%22sid%22:%22798c1d9e2793f9a7522723b921b01186%22}')
-res = hc:get('http://localhost:8888/api')
-if res.body then
-  print(res.body)
-else
-  print(res.err)
-end
+-- hc = require('httpclient').new()
+-- hc:set_default("timeout", 5)
+-- -- res = hc:get('http://localhost:9090/api?params={%22action%22:%22login%22,%22sid%22:%22798c1d9e2793f9a7522723b921b01186%22}')
+-- res = hc:get('http://localhost:8888/api')
+-- if res.body then
+--   print(res.body)
+-- else
+--   print(res.err)
+-- end
 
 -- local db = require "db"
 -- db.init()
@@ -72,4 +72,8 @@ end
 -- print(socket.gettime())
 
 -- print(os.time())
+
+
+local curtime = os.date("[%Y/%m/%d %H:%M:%S]")
+print(curtime)
 

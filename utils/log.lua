@@ -54,15 +54,15 @@ function M.generalPrint(level, fmt, ...)
         else
             s = fmt
         end
-        
+        local curtime = os.date("[%Y/%m/%d %H:%M:%S]")
         local line = debug.getinfo(3).currentline 
         local file = string.gsub(debug.getinfo(3).short_src, ".+/", "") 
         local func = debug.getinfo(3).name or "G_FUN"
         local timenow = os.date("%Y-%m-%d %H:%M:%S")
         local str    
 
-        str = string.format("[LUA] %s =>[%s(line:%s){%s}",
-            tostring(s), tostring(file), tostring(line), tostring(func))
+        str = string.format("%s[LUA] %s =>[%s(line:%s){%s}",
+            curtime, tostring(s), tostring(file), tostring(line), tostring(func))
     
         if log.output == "NAT" then
             EXTERNAL(150, 0, level, str, #str)
